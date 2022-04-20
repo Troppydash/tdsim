@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "outDir": "./build/types",
+        "sourceMap": true,
+        "module": "commonjs",
+        "target": "es5",
+        "declaration": true,
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true
+    },
+    "exclude": [
+        "node_modules"
+    ],
+    "include": [
+        "src/**/*"
+    ]
+}
