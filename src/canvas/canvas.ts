@@ -1,6 +1,6 @@
 import {Plane, Vec2, Vec3, Volume} from "../computation/vector";
 
-
+// todo: make this all methods
 interface ICanvas {
     element: HTMLCanvasElement;
     inputs: object;
@@ -56,6 +56,7 @@ export class TDCanvas implements ICanvas {
     protected time: number;
     protected dt: number;
     protected udt: number;
+    totalTime: number;
 
     constructor(element, options: Partial<ICanvasOptions> = {}) {
         options = {...TDCanvas.defaultOptions, ...options};
@@ -69,8 +70,8 @@ export class TDCanvas implements ICanvas {
 
         this.time = 0;
         this.dt = 0;
-
         this.udt = 1 / this.options.rate.update;
+        this.totalTime = 0;
 
 
         // resize canvas
@@ -147,6 +148,7 @@ export class TDCanvas implements ICanvas {
         // calculate dt
         const dt = (newTime - this.time) / 1000;
         this.time = newTime;
+        this.totalTime += dt;
 
         this.dt += dt;
         while (this.dt > (this.udt / this.options.rate.speed)) {
@@ -234,21 +236,21 @@ export class TDCanvas implements ICanvas {
 
 
 interface IElement {
-    render(parent: any, ctx: CanvasRenderingContext2D, dt: number): void;
+    render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number): void;
 
-    update(parent: any, ctx: CanvasRenderingContext2D, dt: number): void;
+    update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number): void;
 
-    start(parent: any, ctx: CanvasRenderingContext2D): void;
+    start(parent: TDCanvas, ctx: CanvasRenderingContext2D): void;
 }
 
 export class TDElement implements IElement {
-    render(parent, ctx, dt) {
+    render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
     }
 
-    update(parent, ctx, dt) {
+    update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
     }
 
-    start(parent, ctx) {
+    start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
     }
 }
 
