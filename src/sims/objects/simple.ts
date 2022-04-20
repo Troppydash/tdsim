@@ -5,7 +5,7 @@ import {Primitives} from "../../canvas/drawers/mechanics";
 export class TDBall extends TDObject {
     protected size: number;
 
-    constructor(size: number, pos: Vec2, g: number = -9.81) {
+    constructor(size: number, pos: Vec2, g: number = 9.81) {
         super(pos, () => [0, -g]);
 
         this.size = size;

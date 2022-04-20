@@ -1,4 +1,5 @@
 import {Plane, Vec2, Vec3, Volume} from "../computation/vector";
+import {DiffEqSolvers, IDiffEqSolvers} from "../computation/diffeq";
 
 // todo: make this all methods
 interface ICanvas {
@@ -254,6 +255,39 @@ export class TDElement implements IElement {
     }
 }
 
+export class TDListElements extends TDElement {
+    constructor(protected elements: IElement[]) {
+        super();
+    }
+
+    addElement(element: IElement) {
+        this.elements.push(element);
+    }
+
+    render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        for (const element of this.elements) {
+            // save
+            const save = parent.save();
+            element.render(parent, ctx, dt);
+            // restore
+            parent.restore(save);
+        }
+    }
+
+    update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        for (const element of this.elements) {
+            element.update(parent, ctx, dt);
+        }
+    }
+
+    start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+        for (const element of this.elements) {
+            element.start(parent, ctx);
+        }
+    }
+}
+
+
 class TDRawLine extends TDElement {
     protected from: Vec2;
     protected to: Vec2;
@@ -363,23 +397,25 @@ export class TDObject<T = {}> extends TDElement {
     protected vel: Vec2;
     protected acc: Vec2;
     protected accf: MotionEq<Vec2>;
-    protected time: number;
+
+    protected solver: IDiffEqSolvers;
 
     constructor(pos: Vec2 = [0, 0],
                 accf: MotionEq<Vec2> = (t, a, v, p) => [0, 0],
                 acc0: Vec2 = [0, 0],
                 vel: Vec2 = [0, 0],
+                solver: IDiffEqSolvers = DiffEqSolvers.RK4,
                 attr: Partial<T> = {}) {
         super();
 
         this.setAttr(attr);
 
+        this.solver = solver;
         this.pos = pos;
         this.vel = vel;
         this.acc = accf(0, acc0, vel, pos);
         this.accf = accf;
 
-        this.time = 0;
     }
 
     setAttr(attr: Partial<T>) {
@@ -387,13 +423,17 @@ export class TDObject<T = {}> extends TDElement {
     }
 
     update(parent, ctx, dt) {
-        this.time += dt;
+        const time = parent.totalTime;
 
         // TODO: improve this using a better integration method
-        this.acc = this.accf(this.time, this.acc, this.vel, this.pos);
-        const newPos = Plane.VecAddV(this.pos, Plane.VecMulC(this.vel, dt));
-        const newVel = Plane.VecAddV(this.vel, Plane.VecMulC(this.acc, dt));
+        // this.acc = this.accf(time, this.acc, this.vel, this.pos);
+        // const newPos = Plane.VecAddV(this.pos, Plane.VecMulC(this.vel, dt));
+        // const newVel = Plane.VecAddV(this.vel, Plane.VecMulC(this.acc, dt));
+        //
+        // this.pos = newPos;
+        // this.vel = newVel;
 
+        const [newPos, newVel] = this.solver(this.accf.bind(this), this.pos, this.vel, time, dt);
         this.pos = newPos;
         this.vel = newVel;
     }

@@ -1,6 +1,21 @@
-import {TDObject} from "../../canvas/canvas";
+import {TDListElements, TDObject} from "../../canvas/canvas";
 import {Plane, Vec2} from "../../computation/vector";
 import {Primitives} from "../../canvas/drawers/mechanics";
+import {TDContinuousGrapher, TDGrapher} from "./status";
+
+abstract class IEnergeticSystems<T> extends TDObject<T> {
+    abstract kineticEnergy(): number;
+
+    abstract potentialEnergy(): number;
+
+    hamiltonian() {
+        return this.kineticEnergy() + this.potentialEnergy();
+    }
+
+    lagrangian() {
+        return this.kineticEnergy() - this.potentialEnergy();
+    }
+}
 
 interface TDSpinnerAttr {
     g: number;
@@ -144,14 +159,14 @@ interface TDSpringPendulumAttr {
     dampt: number;
 }
 
-export class TDSpringPendulum extends TDObject<TDSpringPendulumAttr> {
+export class TDSpringPendulum extends IEnergeticSystems<TDSpringPendulumAttr> {
     DefaultAttr = {
         x0: 2,
         g: 9.81,
         k: 30,
         m: 1,
-        dampx: 0.7,
-        dampt: 0.7
+        dampx: 0,
+        dampt: 0
     };
 
     protected origin: Vec2;
@@ -173,11 +188,8 @@ export class TDSpringPendulum extends TDObject<TDSpringPendulumAttr> {
         const [x, t] = p;
         const [dx, dt] = v;
 
-        const _dampx = x > x0 ? dampx : -dampx;
-        const _dampt = t > 0 ? dampt : -dampt;
-
-        const ddx = x * dt ** 2 + k / m * (x0 - x) + g * Math.cos(t) - _dampx * dx;
-        let ddt = -1 * (g * Math.sin(t) + 2 * dt * dx) / x - _dampt * dt;
+        const ddx = x * dt ** 2 + k / m * (x0 - x) + g * Math.cos(t) - dampx * dx;
+        let ddt = -1 * (g * Math.sin(t) + 2 * dt * dx) / x - dampt * dt;
         if (Math.abs(x) < 0.1) {
             ddt = 0;
         }
@@ -240,5 +252,51 @@ export class TDSpringPendulum extends TDObject<TDSpringPendulumAttr> {
         // ctx.stroke();
 
     }
+
+    kineticEnergy(): number {
+        const {x0, g, k, m} = this.attr;
+        const [x, t] = this.pos;
+        const [dx, dt] = this.vel;
+
+        return 0.5 * m * (dx ** 2 + x ** 2 * dt ** 2);
+    }
+
+    potentialEnergy(): number {
+        const {x0, g, k, m} = this.attr;
+        const [x, t] = this.pos;
+
+        return 0.5 * k * (x0 - x) ** 2 - m * g * x * Math.cos(t) + m * g * this.origin[1];
+    }
 }
 
+export class TDEnergeticSystemGrapher<T> extends TDListElements {
+    protected system: IEnergeticSystems<T>;
+
+    constructor(system: IEnergeticSystems<T>, values: string[], colors: string[], ...args: ConstructorParameters<typeof TDGrapher>) {
+        const elements = [];
+        for (let i = 0; i < values.length; ++i) {
+            const value = values[i];
+            const color = colors[i];
+
+            let modifiedArgs = [
+                ...args
+            ] as typeof args;
+            modifiedArgs[2] = [];  // so the data is not reused
+            modifiedArgs[3] = {
+                ...modifiedArgs[modifiedArgs.length - 1],
+                color
+            };
+
+            elements.push(
+                new TDContinuousGrapher(
+                    system[value].bind(system),
+                    ...modifiedArgs
+                )
+            );
+        }
+
+        super(elements);
+
+        this.system = system;
+    }
+}

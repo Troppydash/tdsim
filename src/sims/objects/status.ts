@@ -9,6 +9,7 @@ interface TDGrapherAttr {
     yrange: Vec2 | null;
     bordered: boolean;
     axis: boolean;
+    color: string;
 }
 
 export class TDGrapher extends TDElement {
@@ -16,7 +17,8 @@ export class TDGrapher extends TDElement {
         xrange: [-1, 1],
         yrange: [-1, 1],
         bordered: true,
-        axis: true
+        axis: true,
+        color: '#000'
     }
 
     protected attr: TDGrapherAttr;
@@ -62,11 +64,6 @@ export class TDGrapher extends TDElement {
             }
         }
 
-        // render
-        ctx.beginPath();
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
-
 
         // compute yrange if null
         if (yrange === null) {
@@ -83,6 +80,11 @@ export class TDGrapher extends TDElement {
             yrange = [min, max];
         }
 
+        // render
+        ctx.beginPath();
+        ctx.strokeStyle = this.attr.color;
+        ctx.lineWidth = 2;
+
         const xscale = size[0] / (xrange[1] - xrange[0]);
         const yscale = size[1] / (yrange[1] - yrange[0]);
         for (let i = 0; i < rendered.length; i++) {
@@ -95,7 +97,6 @@ export class TDGrapher extends TDElement {
                 ctx.lineTo(...parent.pcTodc([xpos, ypos]));
             }
         }
-
         ctx.stroke();
 
         ctx.strokeStyle = '#0f0';
@@ -171,3 +172,26 @@ export class TDGraphFunctionWTime extends TDGrapher {
     }
 }
 
+export class TDContinuousGrapher extends TDGrapher {
+    protected fn: () => number;
+
+    constructor(fn: () => number, ...args: ConstructorParameters<typeof TDGrapher>) {
+        super(...args);
+
+        this.fn = fn;
+    }
+
+    update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+
+        // if overfill, remove all
+        if (parent.totalTime > this.attr.xrange[1]) {
+            const oldEnd = this.attr.xrange[1];
+            this.attr.xrange[1] = parent.totalTime + (this.attr.xrange[1] - this.attr.xrange[0]);
+            this.attr.xrange[0] = oldEnd;
+            this.setData([]);
+        }
+
+        // add data
+        this.addData([parent.totalTime, this.fn()]);
+    }
+}
