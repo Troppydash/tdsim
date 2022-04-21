@@ -1,5 +1,5 @@
-import {MotionEq} from "../canvas/canvas";
 import {Plane, Vec2} from "./vector";
+import {MotionEq} from "../sims/objects/fundamental";
 
 export type IDiffEqSolvers = (accf: MotionEq<Vec2>, p: Vec2, v: Vec2, t: number, dt: number) => [Vec2, Vec2];
 

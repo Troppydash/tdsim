@@ -1,33 +1,38 @@
 const {canvas, sims, computation} = tdsim;
 const {simple, custom, status, fundamental} = sims;
 
-function Spring(cvs) {
+function setup(cvs) {
     cvs.addElement(new fundamental.TDFPSClock([8, 7]))
+    cvs.addElement(new fundamental.TDTimer([8, 7.5]))
 
-    const spring = new custom.TDSpringPendulum(
-        [3, 2],
-        [4, 7],
-        0.25,
-        {
-            dampt: 0,
-            dampx: 0
-        }
+    const dblPendulum = new simple.TDDoublePendulum(
+        3.14, 3.14 / 2,
+        [0, 0],
+        [6, 5],
+        2, 2,
+        1, 1,
+        0.2,
+        '#ff0000',
+        0, 0
     );
-    cvs.addElement(spring);
+    cvs.addElement(dblPendulum);
 
+    // testing
+
+    // add energy graph
     cvs.addElement(new status.TDEnergeticSystemGrapher(
-        spring,
-        ["kineticEnergy", "potentialEnergy", "hamiltonian"],
-        ["#ff0000", "#0094ff", "black"],
-        [0, 0], [11, 8], [],
+        dblPendulum,
+        ['kineticEnergy', 'potentialEnergy', 'hamiltonian'],
+        ['#ff0000', '#008cff', '#000'],
+        [1, 1], [13, 8],
+        [],
         {
             xrange: [0, 4],
             yrange: [0, 300],
             bordered: false,
             axis: false
         }
-    ));
-
+    ))
 }
 
 // document on ready
@@ -35,9 +40,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const root = document.getElementById('root');
     const pause = document.getElementById('pause');
 
-    canvas.loader.InjectSimulation((cvs) => {
-        Spring(cvs);
-    }, root, {
+    canvas.loader.InjectSimulation(setup, root, {
         region: {
             scale: 70,
             top: 1,

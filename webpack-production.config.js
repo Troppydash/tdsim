@@ -5,7 +5,7 @@ const outDir = path.resolve(__dirname, 'build');
 
 module.exports = {
     target: 'node',
-    mode: "development",
+    mode: "production",
     entry: {
         'tdsim': './src/entry.ts',
     },

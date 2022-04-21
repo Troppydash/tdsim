@@ -1,21 +1,8 @@
-import {TDListElements, TDObject} from "../../canvas/canvas";
 import {Plane, Vec2} from "../../computation/vector";
 import {Primitives} from "../../canvas/drawers/mechanics";
-import {TDContinuousGrapher, TDGrapher} from "./status";
+import {IEnergeticSystems, TDContinuousGrapher, TDGrapher} from "./status";
+import {TDObject} from "./fundamental";
 
-abstract class IEnergeticSystems<T> extends TDObject<T> {
-    abstract kineticEnergy(): number;
-
-    abstract potentialEnergy(): number;
-
-    hamiltonian() {
-        return this.kineticEnergy() + this.potentialEnergy();
-    }
-
-    lagrangian() {
-        return this.kineticEnergy() - this.potentialEnergy();
-    }
-}
 
 interface TDSpinnerAttr {
     g: number;
@@ -269,34 +256,4 @@ export class TDSpringPendulum extends IEnergeticSystems<TDSpringPendulumAttr> {
     }
 }
 
-export class TDEnergeticSystemGrapher<T> extends TDListElements {
-    protected system: IEnergeticSystems<T>;
 
-    constructor(system: IEnergeticSystems<T>, values: string[], colors: string[], ...args: ConstructorParameters<typeof TDGrapher>) {
-        const elements = [];
-        for (let i = 0; i < values.length; ++i) {
-            const value = values[i];
-            const color = colors[i];
-
-            let modifiedArgs = [
-                ...args
-            ] as typeof args;
-            modifiedArgs[2] = [];  // so the data is not reused
-            modifiedArgs[3] = {
-                ...modifiedArgs[modifiedArgs.length - 1],
-                color
-            };
-
-            elements.push(
-                new TDContinuousGrapher(
-                    system[value].bind(system),
-                    ...modifiedArgs
-                )
-            );
-        }
-
-        super(elements);
-
-        this.system = system;
-    }
-}

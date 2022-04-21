@@ -1,6 +1,6 @@
 
 const {canvas, sims, computation} = tdsim;
-const {simple, angular} = sims;
+const {simple, custom} = sims;
 
 function randomHexColor() {
   return '#' + Math.floor(Math.random() * 16777215).toString(16);
@@ -8,15 +8,16 @@ function randomHexColor() {
 
 
 function DoublePendulums(cvs) {
-    for (let x = 0; x <= 10; x += 1) {
+    for (let x = 0; x <= 5; x += 1) {
         const pen = new simple.TDDoublePendulumTrail(
-            300,
-            3,
-            0.3 * Math.PI + x / 100, 0.2 * Math.PI,
+            50,
+            1,
+            1.01 * Math.PI + x / 100, 1 * Math.PI,
+            [0, 0],
             [4, 4],
             2, 2,
             1, 0.1,
-            0.1, randomHexColor(), 0, 0
+            0.1, randomHexColor(), 0.01, 0.01
         );
         cvs.addElement(pen);
     }

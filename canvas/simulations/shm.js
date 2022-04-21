@@ -1,10 +1,10 @@
 
 const {canvas, sims, computation} = tdsim;
-const {simple, angular} = sims;
+const {simple, fundamental} = sims;
 
 function SHM(cvs) {
-    // cvs.addElement(new canvas.canvas.TDFPSClock([8.25, 7]))
-    // cvs.addElement(new simple.TDPendulum(0.5 * Math.PI, [2, 5], 2, 0.25));
+    cvs.addElement(new fundamental.TDFPSClock([8.25, 7]))
+    cvs.addElement(new simple.TDPendulum(0.5 * Math.PI, [2, 5], 2, 0.25));
     cvs.addElement(new simple.TDOsillator([2, 0], 1, 0.25, [6, 5]))
 }
 

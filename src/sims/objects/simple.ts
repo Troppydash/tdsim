@@ -1,6 +1,8 @@
 import {Mat2, Plane, Vec2} from "../../computation/vector";
-import {TDElement, TDObject} from "../../canvas/canvas";
+import {TDElement} from "../../canvas/canvas";
 import {Primitives} from "../../canvas/drawers/mechanics";
+import {IEnergeticSystems} from "./status";
+import {TDObject} from "./fundamental";
 
 export class TDBall extends TDObject {
     protected size: number;
@@ -105,7 +107,7 @@ export class TDPendulum extends TDObject {
     }
 }
 
-export class TDDoublePendulum extends TDObject {
+export class TDDoublePendulum extends IEnergeticSystems<{}> {
     protected anchor: Vec2;
     protected length1: number;
     protected length2: number;
@@ -116,15 +118,17 @@ export class TDDoublePendulum extends TDObject {
     protected damp1: number;
     protected damp2: number;
 
+    protected g: number = 9.81;
 
     constructor(angle1: number, angle2: number,
+                vel0: Vec2,
                 anchor: Vec2,
                 length1: number, length2: number,
                 mass1: number, mass2: number,
                 size: number,
                 color: string,
                 damp1 = 0.4, damp2 = 0.4) {
-        super([angle1, angle2]);
+        super([angle1, angle2], () => [0, 0], [0, 0], vel0);
 
         this.anchor = anchor;
         this.length1 = length1;
@@ -140,7 +144,7 @@ export class TDDoublePendulum extends TDObject {
     }
 
     _accf(t, a, v, p): Vec2 {
-        const g = -9.81;
+        const g = this.g;
         const m1 = this.mass1;
         const m2 = this.mass2;
         const l1 = this.length1;
@@ -167,9 +171,10 @@ export class TDDoublePendulum extends TDObject {
 
     render(parent, ctx, dt) {
         const [t1, t2] = this.pos;
-        const blob1 = Plane.VecAddV(this.anchor, [this.length1 * Math.sin(t1), this.length1 * Math.cos(t1)]);
-        const blob2 = Plane.VecAddV(blob1, [this.length2 * Math.sin(t2), this.length2 * Math.cos(t2)]);
+        const blob1 = Plane.VecAddV(this.anchor, [this.length1 * Math.sin(t1), -this.length1 * Math.cos(t1)]);
+        const blob2 = Plane.VecAddV(blob1, [this.length2 * Math.sin(t2), -this.length2 * Math.cos(t2)]);
 
+        ctx.lineWidth = 4;
         ctx.fillStyle = this.color;
         ctx.strokeStyle = this.color;
         // draw blob1
@@ -192,6 +197,27 @@ export class TDDoublePendulum extends TDObject {
         ctx.arc(...parent.pcTodc(blob2), parent.psTods(this.size), 0, 2 * Math.PI);
         ctx.fill();
     }
+
+    kineticEnergy(): number {
+        const {mass1, mass2, length1, length2} = this;
+        const [t1, t2] = this.pos;
+        const [v1, v2] = this.vel;
+
+        return 0.5 * mass1 * length1 ** 2 * v1 ** 2 + 0.5 * mass2 * (
+            length1 ** 2 * v1 ** 2 + length2 ** 2 * v2 ** 2
+            + 2 * length1 * length2 * v1 * v2 * Math.cos(t1 - t2)
+        );
+    }
+
+    potentialEnergy(): number {
+        const {mass1, mass2, length1, length2} = this;
+        const [t1, t2] = this.pos;
+
+        // the last term is a constant
+        return -((mass1 + mass2) * this.g * length1 * Math.cos(t1)
+            + mass2 * this.g * length2 * Math.cos(t2))
+            + (mass1 + mass2) * this.g * this.anchor[1];
+    }
 }
 
 export class TDDoublePendulumTrail extends TDDoublePendulum {
@@ -210,8 +236,8 @@ export class TDDoublePendulumTrail extends TDDoublePendulum {
 
     render(parent, ctx, dt) {
         const [t1, t2] = this.pos;
-        const blob1 = Plane.VecAddV(this.anchor, [this.length1 * Math.sin(t1), this.length1 * Math.cos(t1)]);
-        const blob2 = Plane.VecAddV(blob1, [this.length2 * Math.sin(t2), this.length2 * Math.cos(t2)]);
+        const blob1 = Plane.VecAddV(this.anchor, [this.length1 * Math.sin(t1), -this.length1 * Math.cos(t1)]);
+        const blob2 = Plane.VecAddV(blob1, [this.length2 * Math.sin(t2), -this.length2 * Math.cos(t2)]);
 
         // update
         this.trails.push(parent.pcTodc(blob2));

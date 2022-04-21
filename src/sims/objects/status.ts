@@ -1,5 +1,6 @@
 import {TDCanvas, TDElement} from "../../canvas/canvas";
 import {Vec2} from "../../computation/vector";
+import {TDListElements, TDObject} from "./fundamental";
 
 type Pair<T> = [T, T];
 type Graphable = Pair<number>[];
@@ -174,24 +175,74 @@ export class TDGraphFunctionWTime extends TDGrapher {
 
 export class TDContinuousGrapher extends TDGrapher {
     protected fn: () => number;
+    private range: number;
+    private degree: number;
 
     constructor(fn: () => number, ...args: ConstructorParameters<typeof TDGrapher>) {
         super(...args);
 
         this.fn = fn;
+        this.range = this.attr.xrange[1] - this.attr.xrange[0];
+        this.degree = 0;
     }
 
     update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        const realTime = parent.totalTime - this.range * this.degree;
 
         // if overfill, remove all
-        if (parent.totalTime > this.attr.xrange[1]) {
-            const oldEnd = this.attr.xrange[1];
-            this.attr.xrange[1] = parent.totalTime + (this.attr.xrange[1] - this.attr.xrange[0]);
-            this.attr.xrange[0] = oldEnd;
+        if (realTime > this.attr.xrange[1]) {
+            this.degree += 1;
             this.setData([]);
         }
 
         // add data
-        this.addData([parent.totalTime, this.fn()]);
+        this.addData([realTime, this.fn()]);
+    }
+}
+
+
+
+export abstract class IEnergeticSystems<T> extends TDObject<T> {
+    abstract kineticEnergy(): number;
+
+    abstract potentialEnergy(): number;
+
+    hamiltonian() {
+        return this.kineticEnergy() + this.potentialEnergy();
+    }
+
+    lagrangian() {
+        return this.kineticEnergy() - this.potentialEnergy();
+    }
+}
+export class TDEnergeticSystemGrapher<T> extends TDListElements {
+    protected system: IEnergeticSystems<T>;
+
+    constructor(system: IEnergeticSystems<T>, values: string[], colors: string[], ...args: ConstructorParameters<typeof TDGrapher>) {
+        const elements = [];
+        for (let i = 0; i < values.length; ++i) {
+            const value = values[i];
+            const color = colors[i];
+
+            let modifiedArgs = [
+                ...args
+            ] as typeof args;
+            modifiedArgs[2] = [];  // so the data is not reused
+            modifiedArgs[3] = {
+                ...modifiedArgs[modifiedArgs.length - 1],
+                color
+            };
+
+            elements.push(
+                new TDContinuousGrapher(
+                    system[value].bind(system),
+                    ...modifiedArgs
+                )
+            );
+        }
+
+        super(elements);
+
+        this.system = system;
     }
 }
