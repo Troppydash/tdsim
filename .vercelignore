@@ -4,6 +4,8 @@ tsconfig.json
 webpack.config.js
 webpack-production.config.js
 
+build.js
+
 node_modules/
 src/
 build/types/
