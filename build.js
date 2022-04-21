@@ -23,7 +23,7 @@ async function* walk(dir) {
     // first start server at localhost:8080 in canvas/
     hserver.createServer({root: '.'}).listen(8080);
 
-    const browser = await firefox.launch({headless: false});
+    const browser = await firefox.launch({headless: true});
     const page = await browser.newPage();
 
     // visit all files in canvas/
@@ -42,8 +42,8 @@ async function* walk(dir) {
         await page.goto(`http://localhost:8080/${p}`);
         // wait for canvas#root to be loaded
         await page.waitForSelector('canvas#root');
-        // wait half a second
-        await wait(500);
+        // wait 2 seconds
+        await wait(3000);
         // take a screenshot of the canvas#root element
         await page.locator('canvas#root').screenshot(
             {
@@ -51,8 +51,18 @@ async function* walk(dir) {
                     .replace('.html', '.png')}`
             });
 
-
+        const name = p.replace('./canvas/simulations/', '');
+        mapping[name] = {
+            screenshot: 'canvas/screenshots/' + name.replace('.html', '.png'),
+        }
     }
 
+    // close
+    await browser.close();
 
+    // save mapping.json
+    fs.writeFileSync('./canvas/mapping.json', JSON.stringify(mapping, null, 2));
+
+    // end script
+    process.exit(0);
 })();

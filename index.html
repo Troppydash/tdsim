@@ -8,14 +8,104 @@
     <title>Troppydash's Simulations</title>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/stimetable.css@0.0.7">
+    <style>
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 3rem;
+        }
+
+        #sims {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+
+            position: relative;
+        }
+
+        #sims > div {
+            margin: 2rem 1rem;
+            max-width: 700px;
+            width: 100%;
+        }
+
+        #sims a {
+            display: block;
+        }
+
+        #sims > div > div {
+            position: relative;
+            padding-bottom: 56.25%;
+        }
+
+        #sims img {
+            position: absolute;
+            object-fit: cover;
+            width: 100%;
+            height: 100%;
+        }
+
+
+        /* lower resolutions */
+        @media screen and (max-width: 800px) {
+            body {
+                padding: 1rem;
+            }
+
+            #sims > div {
+                margin: 1rem;
+                max-width: 100%;
+            }
+        }
+    </style>
 
 </head>
-<body class="st-dark" style="margin: 0; min-height: 100vh; padding: 10rem">
+<body class="st-dark">
 
 <h1 class="st-text st-text--title">Troppydash's Simulations</h1>
 
+<div id="sims">
 
+</div>
 
+<script>
+    function createSim(name, data) {
+        const simsList = document.getElementById('sims');
+
+        const sim = document.createElement('div');
+        sim.classList.add('sim');
+
+        const title = document.createElement('a');
+        title.classList.add('st-text', 'st-text--120');
+        title.innerText = name;
+        title.href = name;
+        sim.appendChild(title);
+
+        const imageWrapper = document.createElement('div');
+        const image = document.createElement('img');
+        image.src = data.screenshot;
+        imageWrapper.appendChild(image);
+        sim.appendChild(imageWrapper);
+
+        simsList.appendChild(sim);
+    }
+
+    async function fetchMappings(path) {
+        const data = await fetch(path);
+        return await data.json();
+    }
+
+    // document ready
+    document.addEventListener('DOMContentLoaded', async function () {
+        const mapping = await fetchMappings('canvas/mapping.json');
+
+        // generate sims
+        for (const [name, data] of Object.entries(mapping)) {
+            createSim(name, data);
+        }
+    });
+</script>
 
 </body>
 </html>
