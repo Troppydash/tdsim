@@ -1,0 +1,10 @@
+package.json
+package-lock.json
+tsconfig.json
+webpack.config.js
+webpack-production.config.js
+
+node_modules/
+src/
+build/types/
+build/tdsim.d.ts
