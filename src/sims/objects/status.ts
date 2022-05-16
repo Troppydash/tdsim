@@ -215,6 +215,7 @@ export abstract class IEnergeticSystems<T> extends TDObject<T> {
         return this.kineticEnergy() - this.potentialEnergy();
     }
 }
+
 export class TDEnergeticSystemGrapher<T> extends TDListElements {
     protected system: IEnergeticSystems<T>;
 

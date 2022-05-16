@@ -3,13 +3,13 @@ import {Plane, Vec2} from "../../computation/vector";
 // Primitives
 export namespace Primitives {
     interface SpringAttr {
-        A: string; // Amplitude
-        W: string; // Windings
-        C: string; // Tightness
+        A: number; // Amplitude
+        W: number; // Windings
+        C: number; // Tightness
     }
     export function drawSpring(
         ctx: CanvasRenderingContext2D,
-        attr,
+        attr: SpringAttr,
         start: Vec2, end: Vec2
     ) {
         const { A, W, C } = attr;
