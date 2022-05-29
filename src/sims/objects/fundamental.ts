@@ -1,4 +1,4 @@
-import {Vec2, Vec3, Volume} from "../../computation/vector";
+import {Vec2, Vec3, VecN, Volume} from "../../computation/vector";
 import {DiffEqSolvers, IDiffEqSolvers} from "../../computation/diffeq";
 import {IElement, TDCanvas, TDElement, TDRawLine} from "../../canvas/canvas";
 
@@ -219,5 +219,30 @@ export class TDObject3D extends TDElement {
 
         this.pos = newPos;
         this.vel = newVel;
+    }
+}
+
+
+interface ITDBaseObject {
+    pos?: VecN;
+    vel?: VecN;
+}
+
+export class TDBaseObject extends TDElement {
+    protected pos: VecN;
+    protected vel: VecN;
+
+    constructor(
+        {
+            pos = [0, 0, 0],
+            vel = [0, 0, 0]
+        }: ITDBaseObject
+    ) {
+        super();
+
+        this.pos = pos;
+        this.vel = vel;
+
+        // TODO: Make the bindings stuff work
     }
 }

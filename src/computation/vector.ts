@@ -7,6 +7,9 @@ export type Mat2 = [
     number, number
 ];
 
+
+export type VecN = number[];
+
 export namespace Plane {
 
     export function VecMag(a: Vec2): Scalar {
@@ -164,4 +167,46 @@ export namespace Volume {
         if (VecMag3(a) < 0.001) return [0, 0, 0];
         return VecMulC3(VecNorm3(a), c);
     }
+}
+
+
+export namespace VSpace {
+    export function VecAddV(a: VecN, b: VecN): VecN {
+        return a.map((v, i) => v + b[i]);
+    }
+
+    export function VecSubV(a: VecN, b: VecN): VecN {
+        return a.map((v, i) => v - b[i]);
+    }
+
+    export function VecAddC(a: VecN, c: Scalar): VecN {
+        return a.map(v => v + c);
+    }
+
+    export function VecSubC(a: VecN, c: Scalar): VecN {
+        return a.map(v => v - c);
+    }
+
+    export function VecMulC(a: VecN, b: Scalar): VecN {
+        return a.map(v => v * b);
+    }
+
+    export function VecDivC(a: VecN, b: Scalar): VecN {
+        return a.map(v => v / b);
+    }
+
+    export function VecDot(a: VecN, b: VecN): Scalar {
+        return a.reduce((acc, v, i) => acc + v * b[i], 0);
+    }
+
+    export function VecMag(a: VecN): Scalar {
+        return Math.sqrt(a.reduce((acc, v) => acc + v * v, 0));
+    }
+
+    export function VecNormalize(a: VecN): VecN {
+        const mag = VecMag(a);
+        if (mag < Number.EPSILON) return [0, 0, 0];
+        return a.map(v => v / mag);
+    }
+
 }

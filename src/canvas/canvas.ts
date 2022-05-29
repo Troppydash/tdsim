@@ -52,7 +52,7 @@ export class TDCanvas implements ICanvas {
     public inputs: ICanvasInputs;
     public ctx: CanvasRenderingContext2D;
     public options: ICanvasOptions;
-    public elements: IElement[][];  // layered elements
+    public elements: { [key: string]: IElement }[];  // layered elements
 
     protected time: number;
     protected dt: number;
@@ -96,13 +96,13 @@ export class TDCanvas implements ICanvas {
         const yX = (1 - region.right) * size.width;
         const yline = new TDRawLine([yX, 0], [yX, size.height]);
 
-        this.addElement(xline, 0);
-        this.addElement(yline, 0);
+        this.addElement(xline, 'xline', 0);
+        this.addElement(yline, 'yline', 0);
     }
 
     start() {
         for (let i = 0; i < this.elements.length; ++i) {
-            for (const element of this.elements[i]) {
+            for (const element of Object.values(this.elements[i])) {
                 element.start(this, this.ctx);
             }
         }
@@ -110,12 +110,21 @@ export class TDCanvas implements ICanvas {
         this.registerInputs();
     }
 
-    addElement(element: IElement, layer = 0) {
+    addElement(element: IElement, name: string = null, layer = 0) {
         if (!this.elements[layer]) {
-            this.elements[layer] = [];
+            this.elements[layer] = {};
         }
 
-        this.elements[layer].push(element);
+        if (name === null || name.length === 0) {
+            name = 'untitled';
+        }
+
+        if (this.elements[layer][name]) {
+            // TODO: generate a unique name
+            throw new Error(`Element ${name} already exists`);
+        }
+
+        this.elements[layer][name] = element;
     }
 
     clearElements() {
@@ -123,6 +132,14 @@ export class TDCanvas implements ICanvas {
 
         if (this.options.coord) {
             this.addCoord();
+        }
+    }
+
+    removeElement(name: string, layer = 0) {
+        if (this.elements[layer][name]) {
+            this.elements[layer][name].stop(this, this.ctx);
+            delete this.elements[layer][name];
+            this.elements[layer][name] = null;
         }
     }
 
@@ -162,7 +179,7 @@ export class TDCanvas implements ICanvas {
 
         // call renders
         for (let i = 0; i < this.elements.length; ++i) {
-            for (const element of this.elements[i]) {
+            for (const element of Object.values(this.elements[i])) {
                 const save = this.save();
                 element.render(this, this.ctx, dt);
                 this.restore(save);
@@ -174,7 +191,7 @@ export class TDCanvas implements ICanvas {
     update(dt) {
         // call updates
         for (let i = 0; i < this.elements.length; ++i) {
-            for (const element of this.elements[i]) {
+            for (const element of Object.values(this.elements[i])) {
                 element.update(this, this.ctx, dt);
             }
         }
@@ -242,6 +259,8 @@ export interface IElement {
     update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number): void;
 
     start(parent: TDCanvas, ctx: CanvasRenderingContext2D): void;
+
+    stop(parent: TDCanvas, ctx: CanvasRenderingContext2D): void;
 }
 
 export class TDElement implements IElement {
@@ -252,6 +271,9 @@ export class TDElement implements IElement {
     }
 
     start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+    }
+
+    stop(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
     }
 }
 
