@@ -226,6 +226,8 @@ export class TDObject3D extends TDElement {
 
 export interface ITDBaseObject {
     differential: GeneralSolvers.DiffEq;
+    pos: VecN;
+    vel: VecN;
 }
 
 export interface TDBaseObjectConstructor {
@@ -238,8 +240,8 @@ export interface TDBaseObjectConstructor {
 }
 
 export class TDBaseObject extends TDElement implements ITDBaseObject {
-    protected pos: VecN;
-    protected vel: VecN;
+    public pos: VecN;
+    public vel: VecN;
 
     protected bindings: {
         [name: string]: Bindable;
@@ -302,6 +304,71 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
 }
 
 
-export class TDBaseObjectTrail {
-    // TODO: Implement this
+export interface Traceable {
+    location(): Vec2;
+}
+
+export class TDBaseObjectTrail extends TDElement {
+    protected step: number;
+    protected limit: number;
+    protected trails: Vec2[];
+    protected color: string;
+    protected system: Traceable;
+
+    constructor(
+        {
+            step = 10,
+            limit = 100,
+            color = '#000',
+            system
+        }: {
+            step: number,
+            limit: number,
+            system: Traceable,
+            color: string
+        }
+    ) {
+        super();
+
+        this.step = step;
+        this.limit = limit;
+        this.system = system;
+        this.color = color;
+
+        this.trails = [];
+    }
+
+    update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        const pos = this.system.location();
+
+        // update
+        const screenCoord = parent.pcTodc(pos);
+        this.trails.push([screenCoord[0], screenCoord[1]]);
+
+        if (this.trails.length > this.limit) {
+            this.trails.shift();
+        }
+    }
+
+    render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        const trails = this.trails;
+
+        // draw trails
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < trails.length - this.step; i += this.step) {
+            ctx.strokeStyle = this.color + Math.max(Math.floor((i / trails.length) * 255), 20).toString(16);
+            ctx.moveTo(...trails[i]);
+            ctx.lineTo(...trails[i + this.step]);
+        }
+
+        for (let i = trails.length - this.step; i < trails.length - 1; ++i) {
+            ctx.strokeStyle = this.color + Math.max(Math.floor((i / trails.length) * 255), 20).toString(16);
+            ctx.moveTo(...trails[i]);
+            ctx.lineTo(...trails[i + 1]);
+        }
+
+        ctx.stroke();
+
+    }
 }

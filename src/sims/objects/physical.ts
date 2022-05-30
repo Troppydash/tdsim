@@ -1,5 +1,5 @@
 import {EnergeticSystems} from "./graphing";
-import {TDBaseObject} from "./fundamental";
+import {TDBaseObject, Traceable} from "./fundamental";
 import {Binding} from "../../canvas/binding";
 import {Vec2, VecN, VSpace} from "../../computation/vector";
 import {TDCanvas} from "../../canvas/canvas";
@@ -10,8 +10,9 @@ import drawHollowCircle = Primitives.drawHollowCircle;
 const G = 5e-3;
 const Mass = 1e4;
 
-export class TDOrbitalMotion extends TDBaseObject implements EnergeticSystems {
-    override DEFAULT_BINDINGS = {
+export class TDOrbitalMotion extends TDBaseObject implements EnergeticSystems, Traceable {
+    override
+    DEFAULT_BINDINGS = {
         M: Binding.constant(Mass),
         m: Binding.constant(0.1),
         G: Binding.constant(G),
@@ -86,7 +87,7 @@ export class TDOrbitalMotion extends TDBaseObject implements EnergeticSystems {
         const mpos = this.pos.slice(2, 4);
 
         const radius = VSpace.VecMag(VSpace.VecSubV(Mpos, mpos));
-        drawHollowCircle(ctx, parent.pcTodc(Mpos) as any, parent.psTods(radius), '#000000');
+        // drawHollowCircle(ctx, parent.pcTodc(Mpos) as any, parent.psTods(radius), '#000000');
 
         drawCircle(ctx, parent.pcTodc(Mpos) as any, parent.psTods(Mr), '#000000');
         drawCircle(ctx, parent.pcTodc(mpos) as any, parent.psTods(mr), '#ff0000');
@@ -126,6 +127,16 @@ export class TDOrbitalMotion extends TDBaseObject implements EnergeticSystems {
         const r = VSpace.VecMag(VSpace.VecSubV(this.pos.slice(2, 4), this.pos.slice(0, 2)));
         const p = -G * M * m / r;
         return p;
+    }
+
+    totalEnergy() {
+        return this.kineticEnergy() + this.potentialEnergy();
+    }
+
+    location(): Vec2 {
+        return [
+            this.pos[2], this.pos[3]
+        ];
     }
 
 }

@@ -6,8 +6,15 @@ function Injector(cvs) {
 
     const gravity = new physical.TDOrbitalMotion.circular({
         M: [0, 1],
-        m: [0, 3]
+        m: [0, 3],
     })
+
+    const gravityTrail = new fundamental.TDBaseObjectTrail({
+        system: gravity,
+        limit: 2000,
+        step: 1
+    });
+
 
     const energy = document.getElementById('percentage-energy');
     const energyBtn = document.getElementById('percentage-energy-btn');
@@ -22,15 +29,16 @@ function Injector(cvs) {
 
 
     cvs.addElement(gravity, 'gravity');
+    cvs.addElement(gravityTrail, 'gravityTrail');
 
     cvs.addElement(new graphing.TDEnergeticSystemGrapher(
         gravity,
-        ["kineticEnergy", "potentialEnergy"],
-        ["#ff0000", "#0094ff"],
+        ["kineticEnergy", "potentialEnergy", "totalEnergy"],
+        ["#ff0000", "#0094ff", "fff"],
         [-9, -5.5], [10, 6], [],
         {
             xrange: [0, 4],
-            yrange: [-7, 10],
+            yrange: [-5, 6],
             bordered: false,
             axis: true
         }
@@ -51,6 +59,10 @@ document.addEventListener('DOMContentLoaded', function () {
         size: {
             height: 600,
             width: 1000
+        },
+        rate: {
+            update: 120,
+            speed: 1
         },
         coord: false,
     }, pause);
