@@ -1,6 +1,7 @@
 import {Vec2, Vec3, VecN, Volume} from "../../computation/vector";
-import {DiffEqSolvers, IDiffEqSolvers} from "../../computation/diffeq";
+import {DiffEqSolvers, GeneralSolvers, IDiffEqSolvers} from "../../computation/diffeq";
 import {IElement, TDCanvas, TDElement, TDRawLine} from "../../canvas/canvas";
+import {Bindable} from "../../canvas/binding";
 
 export class TDListElements extends TDElement {
     constructor(protected elements: IElement[]) {
@@ -223,26 +224,71 @@ export class TDObject3D extends TDElement {
 }
 
 
-interface ITDBaseObject {
-    pos?: VecN;
-    vel?: VecN;
+export interface ITDBaseObject {
+    differential: GeneralSolvers.DiffEq;
 }
 
-export class TDBaseObject extends TDElement {
+export interface TDBaseObjectConstructor {
+    pos?: VecN;
+    vel?: VecN;
+    bindings?: {
+        [name: string]: Bindable;
+    };
+    solver?: GeneralSolvers.Solvers;
+}
+
+export class TDBaseObject extends TDElement implements ITDBaseObject {
     protected pos: VecN;
     protected vel: VecN;
 
+    protected bindings: {
+        [name: string]: Bindable;
+    }
+    protected solver: GeneralSolvers.Solvers = GeneralSolvers.RK4;
+
     constructor(
         {
-            pos = [0, 0, 0],
-            vel = [0, 0, 0]
-        }: ITDBaseObject
+            pos = [],
+            vel = [],
+            bindings = {},
+            solver = null
+        }: TDBaseObjectConstructor
     ) {
         super();
 
         this.pos = pos;
         this.vel = vel;
+        this.bindings = bindings;
 
-        // TODO: Make the bindings stuff work
+        if (solver != null) {
+            this.solver = solver;
+        }
     }
+
+
+    update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        const time = parent.totalTime;
+
+        const [newPos, newVel] = this.solver(this.differential, this.pos, this.vel, time, dt);
+        this.pos = newPos;
+        this.vel = newPos;
+
+    }
+
+    get dimensions() {
+        return Math.max(this.pos.length, this.vel.length);
+    }
+
+    get parameters() {
+        let out = {};
+        for (const [key, bindings] of Object.entries(this.bindings)) {
+            out[key] = bindings.value;
+        }
+        return out;
+    }
+
+    differential(t: number, p: VecN, v: VecN): VecN {
+        throw new Error("no differential equation provided, please override the 'differential()' method");
+    }
+
 }
