@@ -13,11 +13,11 @@ function Spring(cvs) {
             dampx: 0
         }
     );
-    cvs.addElement(spring);
+    cvs.addElement(spring, 'spring');
 
     cvs.addElement(new status.TDEnergeticSystemGrapher(
         spring,
-        ["kineticEnergy", "potentialEnergy", "hamiltonian"],
+        ["kineticEnergy", "potentialEnergy"],
         ["#ff0000", "#0094ff", "black"],
         [0, 0], [11, 8], [],
         {
@@ -26,7 +26,7 @@ function Spring(cvs) {
             bordered: false,
             axis: false
         }
-    ));
+    ), 'grapher');
 
 }
 

@@ -1,6 +1,6 @@
 import {TDCanvas, TDElement} from "../../canvas/canvas";
 import {Vec2} from "../../computation/vector";
-import {TDListElements, TDObject} from "./fundamental";
+import {TDBaseObject, TDListElements, TDObject} from "./fundamental";
 
 type Pair<T> = [T, T];
 type Graphable = Pair<number>[];
@@ -11,6 +11,7 @@ interface TDGrapherAttr {
     bordered: boolean;
     axis: boolean;
     color: string;
+    skip: number;
 }
 
 export class TDGrapher extends TDElement {
@@ -19,7 +20,8 @@ export class TDGrapher extends TDElement {
         yrange: [-1, 1],
         bordered: true,
         axis: true,
-        color: '#000'
+        color: '#000',
+        skip: 4
     }
 
     protected attr: TDGrapherAttr;
@@ -86,9 +88,13 @@ export class TDGrapher extends TDElement {
         ctx.strokeStyle = this.attr.color;
         ctx.lineWidth = 2;
 
+        const skip = this.attr.skip;
         const xscale = size[0] / (xrange[1] - xrange[0]);
         const yscale = size[1] / (yrange[1] - yrange[0]);
         for (let i = 0; i < rendered.length; i++) {
+            if (rendered.length - i > skip && i % skip !== 0)
+                continue;
+
             const [x, y] = rendered[i];
             const xpos = location[0] + (x - xrange[0]) * xscale;
             const ypos = location[1] + (y - yrange[0]) * yscale;
@@ -202,24 +208,15 @@ export class TDContinuousGrapher extends TDGrapher {
 
 
 
-export abstract class IEnergeticSystems<T> extends TDObject<T> {
-    abstract kineticEnergy(): number;
-
-    abstract potentialEnergy(): number;
-
-    hamiltonian() {
-        return this.kineticEnergy() + this.potentialEnergy();
-    }
-
-    lagrangian() {
-        return this.kineticEnergy() - this.potentialEnergy();
-    }
+export interface EnergeticSystems {
+    kineticEnergy(): number;
+    potentialEnergy(): number;
 }
 
-export class TDEnergeticSystemGrapher<T> extends TDListElements {
-    protected system: IEnergeticSystems<T>;
+export class TDEnergeticSystemGrapher extends TDListElements {
+    protected system: EnergeticSystems;
 
-    constructor(system: IEnergeticSystems<T>, values: string[], colors: string[], ...args: ConstructorParameters<typeof TDGrapher>) {
+    constructor(system: EnergeticSystems, values: string[], colors: string[], ...args: ConstructorParameters<typeof TDGrapher>) {
         const elements = [];
         for (let i = 0; i < values.length; ++i) {
             const value = values[i];

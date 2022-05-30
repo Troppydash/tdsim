@@ -120,8 +120,14 @@ export class TDCanvas implements ICanvas {
         }
 
         if (this.elements[layer][name]) {
-            // TODO: generate a unique name
-            throw new Error(`Element ${name} already exists`);
+            // generate a unique name
+            let newName = name;
+            let i = 0;
+            while (this.elements[layer][newName]) {
+                newName = name + i.toString();
+            }
+
+            name = newName;
         }
 
         this.elements[layer][name] = element;
@@ -197,6 +203,11 @@ export class TDCanvas implements ICanvas {
         }
     }
 
+    /**
+     * Returns the screen coordinates of a given world coordinate
+     * @param pc The world coordinate
+     * @returns {number[]} The screen coordinates
+     */
     pcTodc(pc) {
         const {size, region} = this.options;
         const [x, y] = pc;
@@ -212,10 +223,20 @@ export class TDCanvas implements ICanvas {
         return [dx, dy];
     }
 
+    /**
+     * Returns the screen scalar of a world scalar
+     * @param ps The world scalar
+     * @returns {number} The screen scalar
+     */
     psTods(ps) {
         return ps * this.options.region.scale;
     }
 
+    /**
+     * Returns the world coordinates of a given screen coordinate
+     * @param dc The screen coordinate
+     * @returns {number[]} The world coordinates
+     */
     dcTopc(dc) {
         const {size, region} = this.options;
         const [x, y] = dc;

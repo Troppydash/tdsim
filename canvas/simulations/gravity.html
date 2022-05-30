@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Index</title>
+
+    <link rel="stylesheet" href="../css/common.css">
+</head>
+<body>
+
+<div>
+    <h1>Gravity</h1>
+    <button id="pause">Pause</button>
+</div>
+<div>
+    <label>
+        Add Percentage Energy
+    </label>
+    <input placeholder="energy" id="percentage-energy"/>
+    <button id="percentage-energy-btn">Add</button>
+    <br/>
+    <button id="orbit-btn">Orbit</button>
+</div>
+
+<div>
+    <canvas id="root"></canvas>
+</div>
+
+
+<script src="../polyfill/globalPolyfill.js"></script>
+<script src="../../build/tdsim.js"></script>
+<script src="gravity.js"></script>
+</body>
+</html>

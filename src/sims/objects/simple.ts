@@ -1,7 +1,7 @@
 import {Mat2, Plane, Vec2} from "../../computation/vector";
 import {TDElement} from "../../canvas/canvas";
 import {Primitives} from "../../canvas/drawers/mechanics";
-import {IEnergeticSystems} from "./status";
+import {EnergeticSystems} from "./graphing";
 import {TDObject} from "./fundamental";
 
 export class TDBall extends TDObject {
@@ -107,7 +107,7 @@ export class TDPendulum extends TDObject {
     }
 }
 
-export class TDDoublePendulum extends IEnergeticSystems<{}> {
+export class TDDoublePendulum extends TDObject implements EnergeticSystems {
     protected anchor: Vec2;
     protected length1: number;
     protected length2: number;

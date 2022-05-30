@@ -38,4 +38,13 @@ export class Binding<T> implements Bindable {
     get value() {
         return this._value as any;
     }
+
+
+    static constant(value: any) {
+        return new Binding({
+            type: 'const',
+            initial: value,
+            bindings: () => {}
+        });
+    }
 }

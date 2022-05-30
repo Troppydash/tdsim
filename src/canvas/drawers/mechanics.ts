@@ -38,4 +38,29 @@ export namespace Primitives {
         return points;
     }
 
+
+    export function drawHollowCircle(
+        ctx: CanvasRenderingContext2D,
+        at: Vec2,
+        radius: number,
+        color: string
+    ) {
+        ctx.beginPath();
+        ctx.arc(at[0], at[1], radius, 0, 2 * Math.PI);
+        ctx.fillStyle = "transparent";
+        ctx.strokeStyle = color;
+        ctx.stroke();
+    }
+
+    export function drawCircle(
+        ctx: CanvasRenderingContext2D,
+        at: Vec2,
+        radius: number,
+        color: string
+    ) {
+        ctx.beginPath();
+        ctx.arc(...at, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+    }
 }

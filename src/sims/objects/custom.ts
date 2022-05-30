@@ -1,6 +1,6 @@
 import {Plane, Vec2} from "../../computation/vector";
 import {Primitives} from "../../canvas/drawers/mechanics";
-import {IEnergeticSystems, TDContinuousGrapher, TDGrapher} from "./status";
+import {EnergeticSystems, TDContinuousGrapher, TDGrapher} from "./graphing";
 import {TDObject} from "./fundamental";
 
 
@@ -146,7 +146,7 @@ interface TDSpringPendulumAttr {
     dampt: number;
 }
 
-export class TDSpringPendulum extends IEnergeticSystems<TDSpringPendulumAttr> {
+export class TDSpringPendulum extends TDObject<TDSpringPendulumAttr> implements EnergeticSystems {
     DefaultAttr = {
         x0: 2,
         g: 9.81,

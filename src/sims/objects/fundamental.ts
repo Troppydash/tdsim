@@ -246,6 +246,8 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
     }
     protected solver: GeneralSolvers.Solvers = GeneralSolvers.RK4;
 
+    protected DEFAULT_BINDINGS;
+
     constructor(
         {
             pos = [],
@@ -265,13 +267,20 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
         }
     }
 
+    start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+        if (Object.entries(this.DEFAULT_BINDINGS).length > 0) {
+            this.bindings = {...this.DEFAULT_BINDINGS, ...this.bindings};
+        }
+    }
+
 
     update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
         const time = parent.totalTime;
 
-        const [newPos, newVel] = this.solver(this.differential, this.pos, this.vel, time, dt);
+        const self = this;
+        const [newPos, newVel] = this.solver(this.differential.bind(self), this.pos, this.vel, time, dt);
         this.pos = newPos;
-        this.vel = newPos;
+        this.vel = newVel;
 
     }
 
@@ -279,7 +288,7 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
         return Math.max(this.pos.length, this.vel.length);
     }
 
-    get parameters() {
+    get parameters(): any {
         let out = {};
         for (const [key, bindings] of Object.entries(this.bindings)) {
             out[key] = bindings.value;
@@ -290,5 +299,9 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
     differential(t: number, p: VecN, v: VecN): VecN {
         throw new Error("no differential equation provided, please override the 'differential()' method");
     }
+}
 
+
+export class TDBaseObjectTrail {
+    // TODO: Implement this
 }

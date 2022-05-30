@@ -79,7 +79,7 @@ export namespace GeneralSolvers {
         const dzdt = (t, p, v) => {
             return [
                 v,
-                diffeq(t, v, p)
+                diffeq(t, p, v)
             ] as [VecN, VecN];
         }
 
