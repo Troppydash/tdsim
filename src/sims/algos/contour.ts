@@ -1,25 +1,26 @@
 // IMPLEMENTS THE CONTOUR DRAWING OF A SCALAR MAP ALGORITHM
 
 // MARCHING SQUARES or BRUTE-FORCE BILINEAR SCALING
-import {Vec2} from "../../computation/vector";
+import {Area, Line, Vec2} from "../../computation/vector";
+import {ICanvas} from "../../canvas/canvas";
 
 export namespace ContourMethods {
+    export type Method<T> = {
+        computer: Computer<T>,
+        drawer: Drawer<T>
+    };
 
-    type Computer = (
-        area: {
-            xRange: Vec2
-            xStep: number,
-            yRange: Vec2,
-            yStep: number,
-        },
+    type Computer<Data> = (
+        area: Area,
         potential: (pos: Vec2) => number,
-        error: number | null,
+        error?: number | null,
         // TODO: Add offset param if not performant
-    ) => any;
+    ) => Data;
 
-    type Drawer = (
-        data: any,
-        canvas: CanvasRenderingContext2D
+    type Drawer<Data> = (
+        data: Data,
+        ctx: CanvasRenderingContext2D,
+        canvas: ICanvas
     ) => void;
 
 
@@ -60,7 +61,7 @@ export namespace ContourMethods {
      * @param error The error boundary, known as epsilon
      * @constructor
      */
-    export function ContourMarchingSquares(
+    function ContourMarchingSquaresComputer(
         area: {
             xRange: Vec2
             xStep: number,
@@ -69,10 +70,70 @@ export namespace ContourMethods {
         },
         potential: (pos: Vec2) => number,
         error: number | null = 0,
-    ): Vec2[] {
+    ): Line[] {
+
+        let output = [];
+
+        // caching
+        let row = [];
+        // fill first row
+        for (let x = area.xRange[0]; x <= area.xRange[1]; x += area.xStep) {
+            row.push(potential([x, area.yRange[1]]) > 0 ? 1 : 0);
+        }
 
 
-        return [];
+        // loop through all coords
+        for (let y = area.yRange[1] - area.yStep; y >= area.yRange[0]; y -= area.yStep) {
+            let prev = area.xRange[0];
+            let prevPotential = potential([prev, y]) > 0 ? 1 : 0;
+            let counter = 1;
+            for (let x = area.xRange[0] + area.xStep; x <= area.xRange[1]; x += area.xStep) {
+                const currentPotential = potential([x, y]) > 0 ? 1 : 0;
+                const upPrevPotential = row[counter - 1];
+                const upCurrentPotential = row[counter];
+                // get square value
+                const value = (upPrevPotential << 3) + (upCurrentPotential << 2) + (prevPotential << 1) + currentPotential;
+
+                const [xs, ys] = [area.xStep,  area.yStep];
+                const [tx, ty] = [x - area.xStep, y+area.yStep];
+                const lines = CONTOUR_MARCHING_SQUARES[value].map(([x1, y1, x2, y2]) => ([
+                    tx + x1 * xs,
+                    ty - y1 * ys,
+                    tx + x2 * xs,
+                    ty - y2 * ys
+                ]));
+
+                output.push(...lines);
+
+                row[counter - 1] = prevPotential;
+                prevPotential = currentPotential;
+                counter += 1;
+            }
+            row[counter] = prevPotential;
+        }
+
+        return output;
     }
 
+
+    function ContourMarchingSquaresDrawer(
+        data: Line[],
+        ctx: CanvasRenderingContext2D,
+        canvas: ICanvas
+    ) {
+        ctx.beginPath();
+
+        for (const line of data) {
+            const [x1, y1, x2, y2] = line;
+            ctx.moveTo(...canvas.pcTodc([x1, y1]));
+            ctx.lineTo(...canvas.pcTodc([x2, y2]));
+        }
+
+        ctx.stroke();
+    }
+
+    export const ContourMarchingSquare = {
+        computer: ContourMarchingSquaresComputer,
+        drawer: ContourMarchingSquaresDrawer
+    };
 }

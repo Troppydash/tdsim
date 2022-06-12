@@ -2,11 +2,13 @@ import {Plane, Vec2, Vec3, Volume} from "../computation/vector";
 import {DiffEqSolvers, IDiffEqSolvers} from "../computation/diffeq";
 
 // todo: make this all methods
-interface ICanvas {
+export interface ICanvas {
     element: HTMLCanvasElement;
     inputs: object;
     ctx: CanvasRenderingContext2D;
     options: ICanvasOptions;
+
+    pcTodc(pc: Vec2): Vec2;
 }
 
 export interface ICanvasOptions {
@@ -33,7 +35,7 @@ interface ICanvasInputs {
 export class TDCanvas implements ICanvas {
     static defaultOptions: ICanvasOptions = {
         rate: {
-            update: 240,
+            update: 5,
             speed: 1
         },
         size: {
@@ -208,7 +210,7 @@ export class TDCanvas implements ICanvas {
      * @param pc The world coordinate
      * @returns {number[]} The screen coordinates
      */
-    pcTodc(pc) {
+    pcTodc(pc: Vec2): Vec2 {
         const {size, region} = this.options;
         const [x, y] = pc;
 

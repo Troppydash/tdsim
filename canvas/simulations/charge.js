@@ -3,18 +3,44 @@ const {physical} = sims;
 
 function injector(cvs) {
     const {Binding} = canvas.binding;
-    const {Electricity} = physical;
+    const {Electricity, Fields} = physical;
 
     const slider = document.getElementById('radius');
 
-    const charge = new Electricity.Charge({
+    const charge1 = new Electricity.Charge({
         p0: [1, 1],
-        v0: [0, 0],
+        v0: [0.2, 0],
         bindings: {
-            radius: Binding.slider(slider, 100, 10)
+            radius: Binding.slider(slider, 100, 15)
         }
     });
-    cvs.addElement(charge);
+    const charge2 = new Electricity.Charge({
+        p0: [4, 2],
+        v0: [0, 0]
+    });
+    charge2.setConstant('charge', 2);
+    const charge3 = new Electricity.Charge({
+        p0: [0, 5],
+        v0: [0.1, -0.1],
+    });
+    charge3.setConstant('charge', -2);
+
+    const charge4 = new Electricity.Charge({
+        p0: [5, -1],
+        v0: [0, 0],
+    });
+    charge4.setConstant('charge', -0.7);
+
+    const group = new Fields.PotentialGroup(
+        [1, 0.8, 0.6, 0.3, -0.5],
+        [charge1, charge2, charge3, charge4],
+        {
+            xRange: [-2, 10],
+            yRange: [-2, 7],
+            xStep: 0.1,
+            yStep: 0.1
+        });
+    cvs.addElement(group, 'potentialGroup');
 }
 
 // document on ready
@@ -24,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     canvas.loader.InjectSimulation(injector, root, {
         region: {
-            scale: 70,
+            scale: 50,
             top: 0.8,
             right: 0.8,
         },

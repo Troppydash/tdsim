@@ -169,7 +169,6 @@ export namespace Volume {
     }
 }
 
-
 export namespace VSpace {
     export function VecAddV(a: VecN, b: VecN): VecN {
         return a.map((v, i) => v + b[i]);
@@ -210,3 +209,11 @@ export namespace VSpace {
     }
 
 }
+
+export type Line = [number, number, number, number];
+export type Area = {
+    xRange: Vec2
+    xStep: number,
+    yRange: Vec2,
+    yStep: number,
+};

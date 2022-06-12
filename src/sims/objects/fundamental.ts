@@ -1,7 +1,7 @@
 import {Vec2, Vec3, VecN, Volume} from "../../computation/vector";
 import {DiffEqSolvers, GeneralSolvers, IDiffEqSolvers} from "../../computation/diffeq";
 import {IElement, TDCanvas, TDElement, TDRawLine} from "../../canvas/canvas";
-import {Bindable} from "../../canvas/binding";
+import {Bindable, Binding} from "../../canvas/binding";
 
 export class TDListElements extends TDElement {
     constructor(protected elements: IElement[]) {
@@ -296,6 +296,10 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
             out[key] = bindings.value;
         }
         return out;
+    }
+
+    setConstant(key: string, value: any) {
+        this.bindings[key] = Binding.constant(value);
     }
 
     differential(t: number, p: VecN, v: VecN): VecN {

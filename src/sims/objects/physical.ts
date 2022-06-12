@@ -1,11 +1,12 @@
 import {EnergeticSystems} from "../algos/graphing";
 import {ITDBaseObject, TDBaseObject, Traceable} from "./fundamental";
 import {Binding} from "../../canvas/binding";
-import {Vec2, VecN, VSpace} from "../../computation/vector";
+import {Area, Plane, Vec2, VecN, VSpace} from "../../computation/vector";
 import {TDCanvas, TDElement} from "../../canvas/canvas";
 import {Primitives} from "../../canvas/drawers/mechanics";
 import drawCircle = Primitives.drawCircle;
 import drawHollowCircle = Primitives.drawHollowCircle;
+import {ContourMethods} from "../algos/contour";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -89,8 +90,8 @@ export namespace Mechanics {
             const radius = VSpace.VecMag(VSpace.VecSubV(Mpos, mpos));
             // drawHollowCircle(ctx, parent.pcTodc(Mpos) as any, parent.psTods(radius), '#000000');
 
-            drawCircle(ctx, parent.pcTodc(Mpos) as any, parent.psTods(Mr), '#000000');
-            drawCircle(ctx, parent.pcTodc(mpos) as any, parent.psTods(mr), '#ff0000');
+            drawCircle(ctx, parent.pcTodc(Mpos as Vec2) as any, parent.psTods(Mr), '#000000');
+            drawCircle(ctx, parent.pcTodc(mpos as Vec2) as any, parent.psTods(mr), '#ff0000');
         }
 
         supplyEnergy(percent: number) {
@@ -143,13 +144,17 @@ export namespace Mechanics {
 }
 
 export namespace Electricity {
+
+    import HasPotential = Fields.HasPotential;
+
     /**
      *  A singular charge
      */
-    export class Charge extends TDBaseObject {
+    export class Charge extends TDBaseObject implements HasPotential {
         DEFAULT_BINDINGS = {
+            k: Binding.constant(1),
             charge: Binding.constant(1),
-            radius: Binding.constant(0.5)
+            radius: Binding.constant(0.15)
         }
 
         constructor(
@@ -175,33 +180,66 @@ export namespace Electricity {
             const {pos} = this;
             const {radius} = this.parameters;
 
-            drawCircle(ctx, parent.pcTodc(pos) as Vec2, parent.psTods(radius), '#000');
+            drawCircle(ctx, parent.pcTodc(pos as Vec2) as Vec2, parent.psTods(radius), '#000');
         }
 
         differential(t: number, p: VecN, v: VecN): VecN {
             return [0, 0];
         }
-    }
 
+        potential(pos: Vec2): number {
+            const {k, charge} = this.parameters;
+            const distance = Plane.VecDist(pos, this.pos as Vec2);
+            return k * charge / distance;
+        }
+    }
 
 }
 
 export namespace Fields {
+    import Method = ContourMethods.Method;
 
-    export interface HavePotential extends ITDBaseObject {
+    export interface HasPotential extends ITDBaseObject {
         potential(pos: Vec2): number;
     }
 
     export class PotentialGroup extends TDElement {
-        protected objects: HavePotential[];
+        protected potentials: number[];
+        protected objects: HasPotential[];
+        protected method: Method<any> = ContourMethods.ContourMarchingSquare;
 
-        constructor(initialObjects?: HavePotential[]) {
+        protected area: Area = {
+            xRange: [0, 10],
+            xStep: 0.1,
+            yRange: [0, 7],
+            yStep: 0.1
+        }
+        private contourData: any[];
+
+        constructor(
+            potentials: number[],
+            initialObjects?: HasPotential[],
+            area?: Partial<Area>,
+            method?: Method<any>
+        ) {
             super();
+
+            this.potentials = potentials;
 
             this.objects = [];
             if (initialObjects) {
                 this.objects = [...this.objects, ...initialObjects];
             }
+
+            if (method) {
+                this.method = method;
+            }
+
+            if (area) {
+                this.area = {...this.area, ...area};
+            }
+
+            this.contourData = [];
         }
 
         start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
@@ -214,18 +252,49 @@ export namespace Fields {
             for (const object of this.objects) {
                 object.render(parent, ctx, dt);
             }
+
+            ctx.lineWidth = 2;
+            for (const data of this.contourData) {
+                this.method.drawer(data, ctx, parent);
+            }
         }
 
         update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
             for (const object of this.objects) {
                 object.update(parent, ctx, dt);
             }
+
+            // compute contour
+            // if (this.contourData.length > 0) {
+            //     return;
+            // }
+            let i = 0;
+            for (const V of this.potentials) {
+                const pot = (pos: Vec2) => this.potential(pos) - V;
+                this.contourData[i] = this.method.computer(
+                    this.area,
+                    pot.bind(this)
+                );
+
+                i += 1;
+            }
+
         }
 
         stop(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
             for (const object of this.objects) {
                 object.stop(parent, ctx);
             }
+        }
+
+
+        potential(pos: Vec2) {
+            // sum up all the potential
+            let V = 0;
+            for (const object of this.objects) {
+                V += object.potential(pos);
+            }
+            return V;
         }
     }
 
