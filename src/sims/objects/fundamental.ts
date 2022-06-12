@@ -224,7 +224,7 @@ export class TDObject3D extends TDElement {
 }
 
 
-export interface ITDBaseObject {
+export interface ITDBaseObject extends IElement {
     differential: GeneralSolvers.DiffEq;
     pos: VecN;
     vel: VecN;
@@ -300,6 +300,12 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
 
     differential(t: number, p: VecN, v: VecN): VecN {
         throw new Error("no differential equation provided, please override the 'differential()' method");
+    }
+
+    stop(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+        for (const bindable of Object.values(this.bindings)) {
+            bindable.stop();
+        }
     }
 }
 

@@ -2,10 +2,17 @@ const {canvas, sims, computation} = tdsim;
 const {physical} = sims;
 
 function injector(cvs) {
+    const {Binding} = canvas.binding;
     const {Electricity} = physical;
+
+    const slider = document.getElementById('radius');
+
     const charge = new Electricity.Charge({
         p0: [1, 1],
-        v0: [0, 0]
+        v0: [0, 0],
+        bindings: {
+            radius: Binding.slider(slider, 100, 10)
+        }
     });
     cvs.addElement(charge);
 }

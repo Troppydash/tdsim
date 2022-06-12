@@ -1,5 +1,5 @@
 import {EnergeticSystems} from "../algos/graphing";
-import {TDBaseObject, Traceable} from "./fundamental";
+import {ITDBaseObject, TDBaseObject, Traceable} from "./fundamental";
 import {Binding} from "../../canvas/binding";
 import {Vec2, VecN, VSpace} from "../../computation/vector";
 import {TDCanvas, TDElement} from "../../canvas/canvas";
@@ -173,7 +173,7 @@ export namespace Electricity {
 
         render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
             const {pos} = this;
-            const {radius } = this.parameters;
+            const {radius} = this.parameters;
 
             drawCircle(ctx, parent.pcTodc(pos) as Vec2, parent.psTods(radius), '#000');
         }
@@ -183,9 +183,52 @@ export namespace Electricity {
         }
     }
 
-    export class ChargeGroup extends TDElement {
 
+}
+
+export namespace Fields {
+
+    export interface HavePotential extends ITDBaseObject {
+        potential(pos: Vec2): number;
     }
+
+    export class PotentialGroup extends TDElement {
+        protected objects: HavePotential[];
+
+        constructor(initialObjects?: HavePotential[]) {
+            super();
+
+            this.objects = [];
+            if (initialObjects) {
+                this.objects = [...this.objects, ...initialObjects];
+            }
+        }
+
+        start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+            for (const object of this.objects) {
+                object.start(parent, ctx);
+            }
+        }
+
+        render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            for (const object of this.objects) {
+                object.render(parent, ctx, dt);
+            }
+        }
+
+        update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            for (const object of this.objects) {
+                object.update(parent, ctx, dt);
+            }
+        }
+
+        stop(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+            for (const object of this.objects) {
+                object.stop(parent, ctx);
+            }
+        }
+    }
+
 }
 
 
