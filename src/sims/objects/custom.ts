@@ -1,6 +1,6 @@
 import {Plane, Vec2} from "../../computation/vector";
 import {Primitives} from "../../canvas/drawers/mechanics";
-import {EnergeticSystems, TDContinuousGrapher, TDGrapher} from "./graphing";
+import {EnergeticSystems, TDContinuousGrapher, TDGrapher} from "../algos/graphing";
 import {TDObject} from "./fundamental";
 
 

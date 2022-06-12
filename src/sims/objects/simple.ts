@@ -1,7 +1,7 @@
 import {Mat2, Plane, Vec2} from "../../computation/vector";
 import {TDElement} from "../../canvas/canvas";
 import {Primitives} from "../../canvas/drawers/mechanics";
-import {EnergeticSystems} from "./graphing";
+import {EnergeticSystems} from "../algos/graphing";
 import {TDObject} from "./fundamental";
 
 export class TDBall extends TDObject {

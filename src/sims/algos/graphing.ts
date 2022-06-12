@@ -1,6 +1,6 @@
 import {TDCanvas, TDElement} from "../../canvas/canvas";
 import {Vec2} from "../../computation/vector";
-import {TDBaseObject, TDListElements, TDObject} from "./fundamental";
+import {TDBaseObject, TDListElements, TDObject} from "../objects/fundamental";
 
 type Pair<T> = [T, T];
 type Graphable = Pair<number>[];
@@ -133,7 +133,6 @@ export class TDGrapher extends TDElement {
         }
     }
 }
-
 
 export class TDGraphFunction extends TDGrapher {
     protected fn: (x: number) => number;

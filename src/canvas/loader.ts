@@ -29,9 +29,9 @@ function animate(canvas: TDCanvas, pause: HTMLButtonElement | null = null) {
     requestAnimationFrame(update);
 }
 
-type Injector = (canvas: TDCanvas) => void;
+type Injector = (canvas: TDCanvas) => Promise<void>;
 
-export function InjectSimulation(
+export async function InjectSimulation(
     injector: Injector,
     element: HTMLCanvasElement,
     canvasOptions: Partial<ICanvasOptions> = {},
@@ -44,7 +44,7 @@ export function InjectSimulation(
     }
 
     const canvas = new TDCanvas(element, canvasOptions);
-    injector(canvas);
+    await injector(canvas);
 
     animate(canvas, pause);
 }
