@@ -9,7 +9,7 @@ function injector(cvs) {
 
     const charge1 = new Electricity.Charge({
         p0: [1, 1],
-        v0: [0.2, 0],
+        v0: [0, 0],
         bindings: {
             radius: Binding.slider(slider, 100, 15)
         }
@@ -21,7 +21,7 @@ function injector(cvs) {
     charge2.setConstant('charge', 2);
     const charge3 = new Electricity.Charge({
         p0: [0, 5],
-        v0: [0.1, -0.1],
+        v0: [0, 0],
     });
     charge3.setConstant('charge', -2);
 
@@ -32,11 +32,11 @@ function injector(cvs) {
     charge4.setConstant('charge', -0.7);
 
     const group = new Fields.PotentialGroup(
-        [1, 0.8, 0.6, 0.3, -0.5],
+        [10, 1, 0.8, 0.6, 0.3, 0.2, 0.001],
         [charge1, charge2, charge3, charge4],
         {
-            xRange: [-2, 10],
-            yRange: [-2, 7],
+            xRange: [-4, 15],
+            yRange: [-4, 10],
             xStep: 0.1,
             yStep: 0.1
         });

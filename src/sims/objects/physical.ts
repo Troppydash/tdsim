@@ -265,9 +265,9 @@ export namespace Fields {
             }
 
             // compute contour
-            // if (this.contourData.length > 0) {
-            //     return;
-            // }
+            if (this.contourData.length > 0) {
+                return;
+            }
             let i = 0;
             for (const V of this.potentials) {
                 const pot = (pos: Vec2) => this.potential(pos) - V;

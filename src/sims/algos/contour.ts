@@ -71,7 +71,6 @@ export namespace ContourMethods {
         potential: (pos: Vec2) => number,
         error: number | null = 0,
     ): Line[] {
-
         let output = [];
 
         // caching
