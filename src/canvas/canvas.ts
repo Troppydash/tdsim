@@ -35,7 +35,7 @@ interface ICanvasInputs {
 export class TDCanvas implements ICanvas {
     static defaultOptions: ICanvasOptions = {
         rate: {
-            update: 5,
+            update: 240,
             speed: 1
         },
         size: {
@@ -126,7 +126,8 @@ export class TDCanvas implements ICanvas {
             let newName = name;
             let i = 0;
             while (this.elements[layer][newName]) {
-                newName = name + i.toString();
+                newName += `(${i})`;
+                i += 1;
             }
 
             name = newName;

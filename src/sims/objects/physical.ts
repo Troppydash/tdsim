@@ -189,7 +189,7 @@ export namespace Electricity {
 
         potential(pos: Vec2): number {
             const {k, charge} = this.parameters;
-            const distance = Plane.VecDist(pos, this.pos as Vec2);
+            const distance = Math.sqrt((this.pos[0] - pos[0]) ** 2 + (this.pos[1] - pos[1]) ** 2);
             return k * charge / distance;
         }
     }
@@ -207,6 +207,7 @@ export namespace Fields {
         protected potentials: number[];
         protected objects: HasPotential[];
         protected method: Method<any> = ContourMethods.ContourMarchingSquare;
+        protected polling: number = -1;
 
         protected area: Area = {
             xRange: [0, 10],
@@ -214,12 +215,15 @@ export namespace Fields {
             yRange: [0, 7],
             yStep: 0.1
         }
+
+        private frameCount: number;
         private contourData: any[];
 
         constructor(
             potentials: number[],
             initialObjects?: HasPotential[],
             area?: Partial<Area>,
+            polling?: number,
             method?: Method<any>
         ) {
             super();
@@ -239,7 +243,15 @@ export namespace Fields {
                 this.area = {...this.area, ...area};
             }
 
+            if (polling) {
+                this.polling = polling;
+            }
+            this.frameCount = 0;
+
+
             this.contourData = [];
+
+            this.potential = this.potential.bind(this);
         }
 
         start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
@@ -253,7 +265,7 @@ export namespace Fields {
                 object.render(parent, ctx, dt);
             }
 
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 3;
             for (const data of this.contourData) {
                 this.method.drawer(data, ctx, parent);
             }
@@ -265,15 +277,20 @@ export namespace Fields {
             }
 
             // compute contour
-            if (this.contourData.length > 0) {
+            if (this.polling === -1 && this.contourData.length > 0) {
+                return;
+            } else if (this.frameCount <= this.polling) {
+                this.frameCount += 1;
                 return;
             }
+
+            this.frameCount = 0;
             let i = 0;
             for (const V of this.potentials) {
-                const pot = (pos: Vec2) => this.potential(pos) - V;
                 this.contourData[i] = this.method.computer(
                     this.area,
-                    pot.bind(this)
+                    this.potential,
+                    V
                 );
 
                 i += 1;

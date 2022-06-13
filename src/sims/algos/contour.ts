@@ -13,8 +13,8 @@ export namespace ContourMethods {
     type Computer<Data> = (
         area: Area,
         potential: (pos: Vec2) => number,
+        offset?: number,
         error?: number | null,
-        // TODO: Add offset param if not performant
     ) => Data;
 
     type Drawer<Data> = (
@@ -58,6 +58,7 @@ export namespace ContourMethods {
      * Implements the 2D marching squares algorithm
      * @param area The Contour Area
      * @param potential The potential function, draw when
+     * @param offset
      * @param error The error boundary, known as epsilon
      * @constructor
      */
@@ -69,6 +70,7 @@ export namespace ContourMethods {
             yStep: number,
         },
         potential: (pos: Vec2) => number,
+        offset: number = 0,
         error: number | null = 0,
     ): Line[] {
         let output = [];
@@ -77,17 +79,17 @@ export namespace ContourMethods {
         let row = [];
         // fill first row
         for (let x = area.xRange[0]; x <= area.xRange[1]; x += area.xStep) {
-            row.push(potential([x, area.yRange[1]]) > 0 ? 1 : 0);
+            row.push(potential([x, area.yRange[1]]) > offset ? 1 : 0);
         }
 
 
         // loop through all coords
         for (let y = area.yRange[1] - area.yStep; y >= area.yRange[0]; y -= area.yStep) {
             let prev = area.xRange[0];
-            let prevPotential = potential([prev, y]) > 0 ? 1 : 0;
+            let prevPotential = potential([prev, y]) > offset ? 1 : 0;
             let counter = 1;
             for (let x = area.xRange[0] + area.xStep; x <= area.xRange[1]; x += area.xStep) {
-                const currentPotential = potential([x, y]) > 0 ? 1 : 0;
+                const currentPotential = potential([x, y]) > offset ? 1 : 0;
                 const upPrevPotential = row[counter - 1];
                 const upCurrentPotential = row[counter];
                 // get square value
@@ -108,7 +110,7 @@ export namespace ContourMethods {
                 prevPotential = currentPotential;
                 counter += 1;
             }
-            row[counter] = prevPotential;
+            row[counter-1] = prevPotential;
         }
 
         return output;

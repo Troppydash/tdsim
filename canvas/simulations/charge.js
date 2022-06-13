@@ -21,7 +21,7 @@ function injector(cvs) {
     charge2.setConstant('charge', 2);
     const charge3 = new Electricity.Charge({
         p0: [0, 5],
-        v0: [0, 0],
+        v0: [0.2, 0],
     });
     charge3.setConstant('charge', -2);
 
@@ -32,14 +32,16 @@ function injector(cvs) {
     charge4.setConstant('charge', -0.7);
 
     const group = new Fields.PotentialGroup(
-        [10, 1, 0.8, 0.6, 0.3, 0.2, 0.001],
-        [charge1, charge2, charge3, charge4],
+        [3, 0.6, 0.3, 0.01],
+        [charge1, charge2, charge3],
         {
-            xRange: [-4, 15],
-            yRange: [-4, 10],
-            xStep: 0.1,
-            yStep: 0.1
-        });
+            xRange: [-2, 10],
+            yRange: [-2, 7],
+            xStep: 0.2,
+            yStep: 0.2
+        },
+        100
+        );
     cvs.addElement(group, 'potentialGroup');
 }
 

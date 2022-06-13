@@ -218,6 +218,10 @@ export class TDDoublePendulum extends TDObject implements EnergeticSystems {
             + mass2 * this.g * length2 * Math.cos(t2))
             + (mass1 + mass2) * this.g * this.anchor[1];
     }
+
+    totalEnergy() {
+        return this.kineticEnergy() + this.potentialEnergy();
+    }
 }
 
 export class TDDoublePendulumTrail extends TDDoublePendulum {

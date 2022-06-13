@@ -4,7 +4,7 @@ const {physical, graphing, fundamental} = sims;
 function Injector(cvs) {
     cvs.addElement(new fundamental.TDFPSClock([3, 3]))
 
-    const gravity = new physical.TDOrbitalMotion.circular({
+    const gravity = physical.Mechanics.OrbitalMotion.circular({
         M: [0, 1],
         m: [0, 3],
     })

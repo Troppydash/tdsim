@@ -1,5 +1,5 @@
 const {canvas, sims, computation} = tdsim;
-const {simple, custom, status, fundamental} = sims;
+const {graphing, custom, status, fundamental} = sims;
 
 function Spring(cvs) {
     cvs.addElement(new fundamental.TDFPSClock([8, 7]))
@@ -15,7 +15,7 @@ function Spring(cvs) {
     );
     cvs.addElement(spring, 'spring');
 
-    cvs.addElement(new status.TDEnergeticSystemGrapher(
+    cvs.addElement(new graphing.TDEnergeticSystemGrapher(
         spring,
         ["kineticEnergy", "potentialEnergy"],
         ["#ff0000", "#0094ff", "black"],
