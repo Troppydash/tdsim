@@ -224,6 +224,57 @@ export class TDObject3D extends TDElement {
 }
 
 
+// Binding stuff
+export interface BindableBindings {
+    [name: string]: Bindable | any;
+}
+
+export class BindableBase extends TDElement {
+    protected bindings: BindableBindings;
+
+    protected DEFAULT_BINDINGS: BindableBindings | null = null;
+
+    constructor({bindings}: { bindings: BindableBindings }) {
+        super();
+
+        this.bindings = bindings;
+    }
+
+    start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+        if (Object.entries(this.DEFAULT_BINDINGS).length > 0) {
+            // merge
+            const obj = {};
+            for (const [key, value] of Object.entries({...this.DEFAULT_BINDINGS, ...this.bindings})) {
+                if (!(value instanceof Binding)) {
+                    obj[key] = Binding.constant(value);
+                } else {
+                    obj[key] = value;
+                }
+            }
+            this.bindings = {...obj};
+        }
+    }
+
+
+    get parameters(): any {
+        let out = {};
+        for (const [key, bindings] of Object.entries(this.bindings)) {
+            out[key] = bindings.value;
+        }
+        return out;
+    }
+
+    setConstant(key: string, value: any) {
+        this.bindings[key] = Binding.constant(value);
+    }
+
+    stop(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+        for (const bindable of Object.values(this.bindings)) {
+            bindable.stop();
+        }
+    }
+}
+
 export interface ITDBaseObject extends IElement {
     differential: GeneralSolvers.DiffEq;
     pos: VecN;
@@ -233,22 +284,15 @@ export interface ITDBaseObject extends IElement {
 export interface TDBaseObjectConstructor {
     pos?: VecN;
     vel?: VecN;
-    bindings?: {
-        [name: string]: Bindable;
-    };
+    bindings?: BindableBindings;
     solver?: GeneralSolvers.Solvers;
 }
 
-export class TDBaseObject extends TDElement implements ITDBaseObject {
+export class TDBaseObject extends BindableBase implements ITDBaseObject {
     public pos: VecN;
     public vel: VecN;
 
-    protected bindings: {
-        [name: string]: Bindable;
-    }
     protected solver: GeneralSolvers.Solvers = GeneralSolvers.RK4;
-
-    protected DEFAULT_BINDINGS;
 
     constructor(
         {
@@ -258,23 +302,15 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
             solver = null
         }: TDBaseObjectConstructor
     ) {
-        super();
+        super({bindings});
 
         this.pos = pos;
         this.vel = vel;
-        this.bindings = bindings;
 
         if (solver != null) {
             this.solver = solver;
         }
     }
-
-    start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
-        if (Object.entries(this.DEFAULT_BINDINGS).length > 0) {
-            this.bindings = {...this.DEFAULT_BINDINGS, ...this.bindings};
-        }
-    }
-
 
     update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
         const time = parent.totalTime;
@@ -290,29 +326,11 @@ export class TDBaseObject extends TDElement implements ITDBaseObject {
         return Math.max(this.pos.length, this.vel.length);
     }
 
-    get parameters(): any {
-        let out = {};
-        for (const [key, bindings] of Object.entries(this.bindings)) {
-            out[key] = bindings.value;
-        }
-        return out;
-    }
-
-    setConstant(key: string, value: any) {
-        this.bindings[key] = Binding.constant(value);
-    }
 
     differential(t: number, p: VecN, v: VecN): VecN {
         throw new Error("no differential equation provided, please override the 'differential()' method");
     }
-
-    stop(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
-        for (const bindable of Object.values(this.bindings)) {
-            bindable.stop();
-        }
-    }
 }
-
 
 export interface Traceable {
     location(): Vec2;

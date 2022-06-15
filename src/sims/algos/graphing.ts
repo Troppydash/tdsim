@@ -1,6 +1,6 @@
 import {TDCanvas, TDElement} from "../../canvas/canvas";
 import {Vec2} from "../../computation/vector";
-import {TDBaseObject, TDListElements, TDObject} from "../objects/fundamental";
+import {BindableBase, BindableBindings, TDBaseObject, TDListElements, TDObject} from "../objects/fundamental";
 
 type Pair<T> = [T, T];
 type Graphable = Pair<number>[];
@@ -14,8 +14,8 @@ interface TDGrapherAttr {
     skip: number;
 }
 
-export class TDGrapher extends TDElement {
-    DefaultAttr: TDGrapherAttr = {
+export class TDGrapher extends BindableBase {
+    DEFAULT_BINDINGS = {
         xrange: [-1, 1],
         yrange: [-1, 1],
         bordered: true,
@@ -24,16 +24,15 @@ export class TDGrapher extends TDElement {
         skip: 4
     }
 
-    protected attr: TDGrapherAttr;
     protected location: Vec2;
     protected size: Vec2;
     data: Graphable;
 
-    constructor(location: Vec2, size: Vec2, data0: Graphable = [], attr: Partial<TDGrapherAttr> = {}) {
-        super();
-
-        this.attr = {...this.DefaultAttr, ...attr};
-
+    constructor(
+        location: Vec2, size: Vec2,
+        data0: Graphable = [],
+        bindings: BindableBindings = {}) {
+        super({bindings});
 
         this.location = location;
         this.size = size;
@@ -50,7 +49,8 @@ export class TDGrapher extends TDElement {
 
     render(parent, ctx, dt) {
         const {location, size} = this;
-        let {xrange, yrange} = this.attr;
+        let {xrange, yrange, color, skip, bordered, axis} = this.parameters;
+
         // sort renderable data smallest to largest
         const sortedData = this.data.sort((a, b) => a[0] - b[0]);
 
@@ -85,10 +85,9 @@ export class TDGrapher extends TDElement {
 
         // render
         ctx.beginPath();
-        ctx.strokeStyle = this.attr.color;
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2;
 
-        const skip = this.attr.skip;
         const xscale = size[0] / (xrange[1] - xrange[0]);
         const yscale = size[1] / (yrange[1] - yrange[0]);
         for (let i = 0; i < rendered.length; i++) {
@@ -108,13 +107,13 @@ export class TDGrapher extends TDElement {
 
         ctx.strokeStyle = '#0f0';
         ctx.lineWidth = 1;
-        if (this.attr.bordered) {
+        if (bordered) {
             // draw box
             ctx.strokeRect(...parent.pcTodc([location[0], location[1] + size[1]]), parent.psTods(size[0]), parent.psTods(size[1]));
         }
 
         ctx.strokeStyle = '#851322';
-        if (this.attr.axis) {
+        if (axis) {
             // draw axis
             ctx.beginPath();
             const xaxis = [
@@ -136,13 +135,22 @@ export class TDGrapher extends TDElement {
 
 export class TDGraphFunction extends TDGrapher {
     protected fn: (x: number) => number;
+    protected dx: number;
 
     constructor(fn: (x: number) => number, dx: number, ...args: ConstructorParameters<typeof TDGrapher>) {
         super(...args);
 
         this.fn = fn;
+        this.dx = dx;
+
+    }
+
+    start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+        super.start(parent, ctx);
+
+        const {xrange} = this.parameters;
         // do the data
-        for (let x = this.attr.xrange[0]; x <= this.attr.xrange[1]; x += dx) {
+        for (let x = xrange[0]; x <= xrange[1]; x += this.dx) {
             this.addData([x, this.fn(x)]);
         }
     }
@@ -168,10 +176,11 @@ export class TDGraphFunctionWTime extends TDGrapher {
     }
 
     update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        const {xrange} = this.parameters;
         const t = parent.totalTime;
 
         const data = [];
-        for (let x = this.attr.xrange[0]; x <= this.attr.xrange[1]; x += this.dx) {
+        for (let x = xrange[0]; x <= xrange[1]; x += this.dx) {
             data.push([x, this.fn(t, x)]);
         }
         this.setData(data);
@@ -180,22 +189,23 @@ export class TDGraphFunctionWTime extends TDGrapher {
 
 export class TDContinuousGrapher extends TDGrapher {
     protected fn: () => number;
-    private range: number;
     private degree: number;
 
     constructor(fn: () => number, ...args: ConstructorParameters<typeof TDGrapher>) {
         super(...args);
 
         this.fn = fn;
-        this.range = this.attr.xrange[1] - this.attr.xrange[0];
         this.degree = 0;
     }
 
     update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
-        const realTime = parent.totalTime - this.range * this.degree;
+        const {xrange} = this.parameters;
+        const range = xrange[1] - xrange[0];
+
+        const realTime = parent.totalTime - range * this.degree;
 
         // if overfill, remove all
-        if (realTime > this.attr.xrange[1]) {
+        if (realTime > xrange[1]) {
             this.degree += 1;
             this.setData([]);
         }

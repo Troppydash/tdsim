@@ -1,4 +1,4 @@
-const {canvas, sims, computation} = tdsim;
+const {canvas, sims, Computation} = tdsim;
 const {physical} = sims;
 
 function injector(cvs) {

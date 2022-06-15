@@ -48,3 +48,9 @@ export async function InjectSimulation(
 
     animate(canvas, pause);
 }
+
+export async function InjectGraph(
+
+) {
+
+}
