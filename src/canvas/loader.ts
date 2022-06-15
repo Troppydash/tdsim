@@ -1,4 +1,8 @@
-import {ICanvasOptions, TDCanvas} from "./canvas";
+import {ICanvas, ICanvasOptions, TDCanvas} from "./canvas";
+import {Graphing} from "../sims/algos/graphing";
+import FunctionGrapher = Graphing.FunctionGrapher;
+import GrapherAttr = Graphing.GrapherAttr;
+import {Vec2} from "../computation/vector";
 
 export function sayHello() {
     alert("Hello World");
@@ -29,7 +33,7 @@ function animate(canvas: TDCanvas, pause: HTMLButtonElement | null = null) {
     requestAnimationFrame(update);
 }
 
-type Injector = (canvas: TDCanvas) => Promise<void>;
+type Injector = (canvas: ICanvas) => Promise<void>;
 
 export async function InjectSimulation(
     injector: Injector,
@@ -49,8 +53,45 @@ export async function InjectSimulation(
     animate(canvas, pause);
 }
 
+type GraphType = "Static";
+
 export async function InjectGraph(
-
+    {
+        element,
+        fn,
+        dx,
+        graphOptions = {},
+        canvasOptions = {},
+        graphType = "Static",
+        pause = null,
+        injector = null
+    }: {
+        element: HTMLCanvasElement,
+        fn: (...args: any) => any,
+        dx: number,
+        graphOptions: Partial<GrapherAttr>,
+        canvasOptions: Partial<ICanvasOptions>,
+        graphType: GraphType,
+        pause: HTMLButtonElement | null,
+        injector: Injector | null
+    }
 ) {
+    const Injector = async (canvas: ICanvas) => {
+        const location = canvas.anchor();
+        const size = canvas.drawableArea();
+        switch (graphType) {
+            case "Static":
+                canvas.addElement(new FunctionGrapher(fn, dx, location, size, [], graphOptions), 'static graph');
 
+                break;
+            default:
+                throw new Error(`Unknown graph type of ${graphType}`)
+        }
+
+        if (injector !== null) {
+            await injector(canvas);
+        }
+    }
+
+    await InjectSimulation(Injector, element, canvasOptions, pause);
 }

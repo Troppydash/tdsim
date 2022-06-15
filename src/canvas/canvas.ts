@@ -9,6 +9,12 @@ export interface ICanvas {
     options: ICanvasOptions;
 
     pcTodc(pc: Vec2): Vec2;
+    addElement(element: IElement, name?: string, layer?: number);
+    drawableArea(): Vec2;
+    anchor(): Vec2;
+
+    // TODO: Implement this to save battery
+    wakeUp(duration: number);
 }
 
 export interface ICanvasOptions {
@@ -26,6 +32,7 @@ export interface ICanvasOptions {
         right: number;
     }
     coord: boolean;
+    hibernation: boolean;
 }
 
 interface ICanvasInputs {
@@ -47,7 +54,8 @@ export class TDCanvas implements ICanvas {
             top: 0.5,
             right: 0.5
         },
-        coord: false
+        coord: false,
+        hibernation: false
     }
 
     public element: HTMLCanvasElement;
@@ -273,6 +281,29 @@ export class TDCanvas implements ICanvas {
                 return this.inputs.hover;
             }
         }
+    }
+
+    drawableArea(): Vec2 {
+        const {size, region} = this.options;
+        return [
+            size.width / region.scale,
+            size.height / region.scale
+        ];
+    }
+
+    /**
+     * Retrieves the coordinate of the bottom left
+     */
+    anchor(): Vec2 {
+        const {size, region} = this.options;
+
+        return [
+            size.width / region.scale * (1-region.right),
+            size.height / region.scale * (1-region.top),
+        ]
+    }
+
+    wakeUp(duration: number) {
     }
 }
 
