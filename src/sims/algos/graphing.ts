@@ -1,12 +1,13 @@
-import {TDCanvas, TDElement} from "../../canvas/canvas";
+import {TDCanvas} from "../../canvas/canvas";
 import {Vec2} from "../../computation/vector";
-import {BindableBase, BindableBindings, TDBaseObject, TDListElements, TDObject} from "../objects/fundamental";
+import {BindableBase, BindableBindings} from "../objects/fundamental";
 
 
 export namespace Graphing {
     type Pair<T> = [T, T];
     type Graphable = Pair<number>[];
     export type BaseGrapherConstructor = ConstructorParameters<typeof BaseGrapher>;
+
     export interface GrapherAttr extends BindableBindings {
         xrange: Vec2;
         yrange: Vec2 | null;
@@ -16,18 +17,21 @@ export namespace Graphing {
         skip: number;
     }
 
+    export const BASEGRAPHER_DEFAULT: GrapherAttr = {
+        xrange: [-1, 1],
+        yrange: [-1, 1],
+        bordered: true,
+        axis: true,
+        color: '#000',
+        skip: 4
+    };
+
+
     /**
      * Base Graphing class that graphs a set of points
      */
     export class BaseGrapher extends BindableBase {
-        DEFAULT_BINDINGS: GrapherAttr = {
-            xrange: [-1, 1],
-            yrange: [-1, 1],
-            bordered: true,
-            axis: true,
-            color: '#000',
-            skip: 4
-        }
+        DEFAULT_BINDINGS: GrapherAttr = BASEGRAPHER_DEFAULT;
 
         protected location: Vec2;
         protected size: Vec2;
@@ -50,6 +54,10 @@ export namespace Graphing {
 
         addData(data: Pair<number>) {
             this.data.push(data);
+        }
+
+        clearData() {
+            this.data = [];
         }
 
         render(parent, ctx, dt) {
@@ -96,7 +104,7 @@ export namespace Graphing {
             const xscale = size[0] / (xrange[1] - xrange[0]);
             const yscale = size[1] / (yrange[1] - yrange[0]);
             for (let i = 0; i < rendered.length; i++) {
-                if (rendered.length - i > skip && i % skip !== 0)
+                if (skip !== 0 && rendered.length - i > skip && i % skip !== 0)
                     continue;
 
                 const [x, y] = rendered[i];
@@ -138,7 +146,7 @@ export namespace Graphing {
         }
     }
 
-    type GraphableFunction = (x: number, p: { [key: string]: number}) => number | null;
+    type GraphableFunction = (x: number, p: { [key: string]: number }) => number | null;
 
     /**
      * Base function graphing that graphs a given function
@@ -235,5 +243,64 @@ export namespace Graphing {
     }
 }
 
+export namespace DynamicGraphs {
+    import BaseGrapher = Graphing.BaseGrapher;
+    import BASEGRAPHER_DEFAULT = Graphing.BASEGRAPHER_DEFAULT;
+    import GrapherAttr = Graphing.GrapherAttr;
+
+    type Function = (t: number, x: number, p: object) => number;
+    interface FunctionGrapherBindings extends GrapherAttr {
+        fn: Function | null;
+        dx: number;
+    }
+
+    export class FunctionGrapher extends BaseGrapher {
+        DEFAULT_BINDINGS: FunctionGrapherBindings = {
+            ...BASEGRAPHER_DEFAULT,
+            fn: null,
+            dx: 0.01,
+            skip: 0
+        }
 
 
+        constructor(location: Vec2, size: Vec2,
+                    bindings: Partial<FunctionGrapherBindings>) {
+            super(location, size, [], bindings);
+
+        }
+
+        computePoints() {
+            this.clearData();
+            const param = this.parameters;
+            const {xrange, fn, dx} = param;
+
+            // error, no data
+            if (fn === null) {
+                return;
+            }
+
+            // do the data
+            for (let x = xrange[0]; x <= xrange[1]; x += dx) {
+                const data = fn(x, param);
+                if (data === null)
+                    continue;
+                this.addData([x, data]);
+            }
+        }
+
+        start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+            super.start(parent, ctx);
+
+            this.computePoints()
+            parent.wakeUp(1);  // allow for computing
+
+            // bind for change listening
+            if (this.bindings.fn !== null) {
+                this.bindings.fn.listen('change', () => {
+                    this.computePoints();
+                    parent.wakeUp(1);
+                });
+            }
+        }
+    }
+}

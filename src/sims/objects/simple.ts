@@ -1,8 +1,9 @@
 import {Mat2, Plane, Vec2} from "../../computation/vector";
 import {TDElement} from "../../canvas/canvas";
 import {Primitives} from "../../canvas/drawers/mechanics";
-import {EnergeticSystems} from "../algos/graphing";
 import {TDObject} from "./fundamental";
+import {Groups} from "./physical";
+import EnergeticSystems = Groups.EnergeticSystems;
 
 export class TDBall extends TDObject {
     protected size: number;

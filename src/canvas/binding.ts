@@ -1,3 +1,5 @@
+import {evalInContext} from "../lib/eval";
+
 type BindableType = "text" | "number" | "const" | "function";
 
 interface BindableConstructor<T> {
@@ -12,12 +14,14 @@ export interface Bindable {
     stop(): void;
 }
 
+type Listener = (self: Binding<any>) => void;
 
 // generates input binding for a given input type
 export class Binding<T> implements Bindable {
     protected _value: T;
     protected type: BindableType;
     protected unbind: (() => void) | void;
+    protected listeners: { [event: string]: Listener[] };
 
     constructor(args: BindableConstructor<T>) {
         const {
@@ -29,6 +33,9 @@ export class Binding<T> implements Bindable {
         this._value = initial;
         this.type = type;
         this.unbind = null;
+        this.listeners = {
+            'change': []
+        };
 
         if (this.type !== 'const') {
             this.unbind = bindings(this.handleChange.bind(this));
@@ -43,6 +50,13 @@ export class Binding<T> implements Bindable {
 
     handleChange(newValue: T) {
         this._value = newValue;
+        for (const listener of this.listeners.change) {
+            listener(this);
+        }
+    }
+
+    listen(event: 'change', callback: (self: Binding<T>) => void) {
+        this.listeners[event].push(callback);
     }
 
     get value() {
@@ -86,7 +100,7 @@ export class Binding<T> implements Bindable {
         initial?: string,
     ) {
         const parseFunction = (value: string) => {
-            return x => evalInContext({env, x}, value);
+            return (x, args) => evalInContext(value, {...env, x, ...args});
         }
 
 
@@ -95,7 +109,7 @@ export class Binding<T> implements Bindable {
             initial: initial == null ? parseFunction(input.value) : parseFunction(initial),
             bindings: (handleChange) => {
                 const handle = (e: InputEvent) => {
-                    const value = parseFunction((e.currentTarget as HTMLInputElement).value);
+                    const value = parseFunction((e.target as HTMLInputElement).value);
                     handleChange(value);
                 }
 
@@ -108,32 +122,12 @@ export class Binding<T> implements Bindable {
             }
         })
     }
-}
 
+    static range(
+        range: HTMLElement
+    ) {
 
-/**
- * https://stackoverflow.com/a/43306962
- * @param context
- * @param js
- */
-function evalInContext(context, js) {
-    let value;
-
-    try {
-        // for expressions
-        value = eval('with(context) { ' + js + ' }');
-    } catch (e) {
-        if (e instanceof SyntaxError) {
-            try {
-                // for statements
-                value = (new Function('with(this) { ' + js + ' }')).call(context);
-            } catch (e) {
-                value = null;
-            }
-        }
     }
-
-    return value;
 }
 
 
@@ -144,9 +138,9 @@ function debouncedListener(fn: any, delay: number) {
         if (timer !== null) {
             clearTimeout(timer);
         }
-        timer = setTimeout(() => {
+        timer = setTimeout(((a) => () => {
             timer = null;
-            fn(...args);
-        }, delay);
+            fn(...a);
+        })(args), delay);
     }
 }

@@ -13,7 +13,6 @@ export interface ICanvas {
     drawableArea(): Vec2;
     anchor(): Vec2;
 
-    // TODO: Implement this to save battery
     wakeUp(duration: number);
 }
 
@@ -32,7 +31,10 @@ export interface ICanvasOptions {
         right: number;
     }
     coord: boolean;
-    hibernation: boolean;
+    battery: {
+        hibernation: boolean;
+        newTicks: number;
+    }
 }
 
 interface ICanvasInputs {
@@ -55,7 +57,10 @@ export class TDCanvas implements ICanvas {
             right: 0.5
         },
         coord: false,
-        hibernation: false
+        battery: {
+            hibernation: false,
+            newTicks: 2
+        }
     }
 
     public element: HTMLCanvasElement;
@@ -69,7 +74,15 @@ export class TDCanvas implements ICanvas {
     protected udt: number;
     totalTime: number;
 
+    // ticks = 0 means no rendering
+    protected hibernation: boolean;
+    protected ticks: number;
+
+    // CONSTANTS
+
+
     constructor(element, options: Partial<ICanvasOptions> = {}) {
+        // TODO: deep merge
         options = {...TDCanvas.defaultOptions, ...options};
 
         this.element = element;
@@ -94,6 +107,14 @@ export class TDCanvas implements ICanvas {
         // coords
         if (this.options.coord) {
             this.addCoord();
+        }
+
+        // battery saving
+        this.hibernation = this.options.battery.hibernation;
+        this.ticks = 0;
+        if (this.hibernation) {
+            // add 10 ticks for initial rendering
+            this.ticks = this.options.battery.newTicks;
         }
     }
 
@@ -142,6 +163,7 @@ export class TDCanvas implements ICanvas {
         }
 
         this.elements[layer][name] = element;
+        this.wakeUp();
     }
 
     clearElements() {
@@ -150,6 +172,8 @@ export class TDCanvas implements ICanvas {
         if (this.options.coord) {
             this.addCoord();
         }
+
+        this.wakeUp();
     }
 
     removeElement(name: string, layer = 0) {
@@ -158,6 +182,8 @@ export class TDCanvas implements ICanvas {
             delete this.elements[layer][name];
             this.elements[layer][name] = null;
         }
+
+        this.wakeUp();
     }
 
     save() {
@@ -177,6 +203,17 @@ export class TDCanvas implements ICanvas {
     }
 
     render(newTime, reset = false) {
+        // if we are hibernating
+        if (this.hibernation) {
+            // console.log("ticks=",this.ticks);
+            if (this.ticks > 0) {
+                this.ticks -= 1;
+            } else {
+                return;
+            }
+        }
+
+
         if (reset) {
             this.time = newTime;
         }
@@ -206,6 +243,10 @@ export class TDCanvas implements ICanvas {
     }
 
     update(dt) {
+        if (this.hibernation && this.ticks <= 0) {
+            return;
+        }
+
         // call updates
         for (let i = 0; i < this.elements.length; ++i) {
             for (const element of Object.values(this.elements[i])) {
@@ -303,7 +344,10 @@ export class TDCanvas implements ICanvas {
         ]
     }
 
-    wakeUp(duration: number) {
+    wakeUp(duration: number = this.options.battery.newTicks) {
+        if (this.hibernation) {
+            this.ticks += duration;
+        }
     }
 }
 

@@ -1,8 +1,9 @@
 import {ICanvas, ICanvasOptions, TDCanvas} from "./canvas";
-import {Graphing} from "../sims/algos/graphing";
+import {DynamicGraphs, Graphing} from "../sims/algos/graphing";
 import FunctionGrapher = Graphing.FunctionGrapher;
 import GrapherAttr = Graphing.GrapherAttr;
 import {Vec2} from "../computation/vector";
+import {Binding} from "./binding";
 
 export function sayHello() {
     alert("Hello World");
@@ -53,8 +54,20 @@ export async function InjectSimulation(
     animate(canvas, pause);
 }
 
-type GraphType = "Static";
+type GraphType = "Static" | "Dynamic";
 
+/**
+ * Method to inject the tdsim library into a canvas with a graph
+ * @param element The canvas element
+ * @param fn The function to graph, of form (x, p) => number
+ * @param dx The accuracy of the graph
+ * @param graphOptions The graph options
+ * @param canvasOptions The canvas options
+ * @param graphType The type of the graph
+ * @param pause THe pause button element
+ * @param injector Injector function that runs for extra elements
+ * @constructor
+ */
 export async function InjectGraph(
     {
         element,
@@ -67,7 +80,7 @@ export async function InjectGraph(
         injector = null
     }: {
         element: HTMLCanvasElement,
-        fn: (...args: any) => any,
+        fn: (...args: any) => any | Binding<(...args: any) => any>,
         dx: number,
         graphOptions: Partial<GrapherAttr>,
         canvasOptions: Partial<ICanvasOptions>,
@@ -81,7 +94,18 @@ export async function InjectGraph(
         const size = canvas.drawableArea();
         switch (graphType) {
             case "Static":
-                canvas.addElement(new FunctionGrapher(fn, dx, location, size, [], graphOptions), 'static graph');
+                canvas.addElement(new FunctionGrapher(fn as any, dx, location, size, [], graphOptions), 'static graph');
+
+                break;
+            case "Dynamic":
+                canvas.addElement(new DynamicGraphs.FunctionGrapher(
+                    location, size,
+                    {
+                        dx,
+                        fn,
+                        ...graphOptions
+                    }
+                ));
 
                 break;
             default:
@@ -93,5 +117,12 @@ export async function InjectGraph(
         }
     }
 
+    // always hibernate
+    if (!canvasOptions.battery) {
+        canvasOptions.battery = {
+            hibernation: true,
+            newTicks: 2
+        };
+    }
     await InjectSimulation(Injector, element, canvasOptions, pause);
 }
