@@ -1,5 +1,6 @@
 import {Plane, Vec2, Vec3, Volume} from "../computation/vector";
 import {DiffEqSolvers, IDiffEqSolvers} from "../computation/diffeq";
+import {mergeDeep} from "../lib/merge";
 
 // todo: make this all methods
 export interface ICanvas {
@@ -82,8 +83,7 @@ export class TDCanvas implements ICanvas {
 
 
     constructor(element, options: Partial<ICanvasOptions> = {}) {
-        // TODO: deep merge
-        options = {...TDCanvas.defaultOptions, ...options};
+        options = mergeDeep(TDCanvas.defaultOptions, options);
 
         this.element = element;
         this.inputs = {};
@@ -205,7 +205,6 @@ export class TDCanvas implements ICanvas {
     render(newTime, reset = false) {
         // if we are hibernating
         if (this.hibernation) {
-            // console.log("ticks=",this.ticks);
             if (this.ticks > 0) {
                 this.ticks -= 1;
             } else {

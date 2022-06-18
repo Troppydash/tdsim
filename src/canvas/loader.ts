@@ -54,7 +54,10 @@ export async function InjectSimulation(
     animate(canvas, pause);
 }
 
-type GraphType = "Static" | "Dynamic";
+// Static draws a single graph,
+// Dynamic takes a custom function input string and draws it dynamically
+// Reactive takes a custom function and draws it dynamically
+type GraphType = "Static" | "Dynamic" | "Reactive";
 
 /**
  * Method to inject the tdsim library into a canvas with a graph
@@ -108,6 +111,11 @@ export async function InjectGraph(
                 ));
 
                 break;
+
+            case "Reactive":
+                // TODO: IMPLEMENT THIS
+                break;
+
             default:
                 throw new Error(`Unknown graph type of ${graphType}`)
         }

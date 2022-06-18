@@ -1,6 +1,6 @@
 import {evalInContext} from "../lib/eval";
 
-type BindableType = "text" | "number" | "const" | "function";
+type BindableType = "text" | "number" | "const" | "function" | "range";
 
 interface BindableConstructor<T> {
     type: BindableType;
@@ -38,7 +38,7 @@ export class Binding<T> implements Bindable {
         };
 
         if (this.type !== 'const') {
-            this.unbind = bindings(this.handleChange.bind(this));
+            this.unbind = bindings.bind(this)(this.handleChange.bind(this));
         }
     }
 
@@ -77,7 +77,7 @@ export class Binding<T> implements Bindable {
         return new Binding({
             type: 'number',
             initial: initial == null ? parseFloat(slider.value) / scale : initial / scale,
-            bindings: (handleChange) => {
+            bindings(handleChange) {
                 const handle = (e: InputEvent) => {
                     const value = parseFloat((e.currentTarget as HTMLInputElement).value);
                     if (!isNaN(value)) {
@@ -88,6 +88,44 @@ export class Binding<T> implements Bindable {
 
                 return () => {
                     slider.removeEventListener('change', handle);
+                }
+            }
+        })
+    }
+
+    static range(
+        range1: HTMLInputElement,
+        range2: HTMLInputElement,
+        scale: number = 100,
+        initial?: [number, number]
+    ) {
+        const parseRange = (v1: string, v2: string) => {
+            return [parseFloat(v1) / scale, parseFloat(v2) / scale]
+        }
+        const start = initial == null ? parseRange(range1.value, range2.value) : initial;
+        return new Binding({
+            type: 'range',
+            initial: start,
+            bindings(handleChange) {
+                const handle1 = (e: InputEvent) => {
+                    const value = parseFloat((e.currentTarget as HTMLInputElement).value);
+                    if (!isNaN(value)) {
+                        handleChange([value / scale, this.value[1]]);
+                    }
+                }
+
+                const handle2 = (e: InputEvent) => {
+                    const value = parseFloat((e.currentTarget as HTMLInputElement).value);
+                    if (!isNaN(value)) {
+                        handleChange([this.value[0], value / scale]);
+                    }
+                }
+                range1.addEventListener('change', handle1);
+                range2.addEventListener('change', handle2);
+
+                return () => {
+                    range1.removeEventListener('change', handle1);
+                    range2.removeEventListener('change', handle2);
                 }
             }
         })
@@ -123,11 +161,7 @@ export class Binding<T> implements Bindable {
         })
     }
 
-    static range(
-        range: HTMLElement
-    ) {
 
-    }
 }
 
 
