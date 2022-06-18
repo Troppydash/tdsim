@@ -248,7 +248,7 @@ export namespace DynamicGraphs {
     import BASEGRAPHER_DEFAULT = Graphing.BASEGRAPHER_DEFAULT;
     import GrapherAttr = Graphing.GrapherAttr;
 
-    type Function = (t: number, x: number, p: object) => number;
+    type Function = (x: number, p: object) => number;
     interface FunctionGrapherBindings extends GrapherAttr {
         fn: Function | null;
         dx: number;
@@ -294,12 +294,18 @@ export namespace DynamicGraphs {
             this.computePoints()
             parent.wakeUp(1);  // allow for computing
 
+            this.registerBindings(parent);
+        }
+
+        registerBindings(canvas: TDCanvas) {
             // bind for change listening
-            if (this.bindings.fn !== null) {
-                this.bindings.fn.listen('change', () => {
-                    this.computePoints();
-                    parent.wakeUp(1);
-                });
+            for (const value of Object.values(this.bindings)) {
+                if (value.listen) {
+                    value.listen('change', () => {
+                        this.computePoints();
+                        canvas.wakeUp(1);
+                    });
+                }
             }
         }
     }

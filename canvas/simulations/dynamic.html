@@ -21,8 +21,22 @@
     <div>
         Equation:
         <input value="x * x" placeholder="x * x" id="graph2Input"/>
+        <br/>
+        <input id="xrangeLower" type="range" value="-200" min="-1000" max="1000"/>
+        <input id="xrangeUpper" type="range" value="200" min="-1000" max="1000"/>
     </div>
     <canvas id="graph2"></canvas>
+</div>
+
+<div>
+    <div>
+        Variables
+        <label>
+            I
+            <input id="diodeCurrent" type="range" value="100" min="0" max="1000"/>
+        </label>
+    </div>
+    <canvas id="diode"></canvas>
 </div>
 
 
