@@ -95,7 +95,7 @@ function createDynamicGraph(element, fn, variables, settings) {
         variRange.id = `${ID}-${vari}label`;
 
         variScale.value = '100';
-        variLower.value = '0';
+        variLower.value = '0';  // TODO: Make these bound respond to value
         variUpper.value = '1';
 
         variLower.type = 'number';

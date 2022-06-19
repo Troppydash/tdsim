@@ -1,6 +1,6 @@
 {
   "name": "tdsim",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "",
   "main": "build/tdsim.js",
   "scripts": {
@@ -8,9 +8,12 @@
     "build-watch": "webpack --watch",
     "build-production": "webpack --config webpack-production.config.js"
   },
+  "files": [
+    "/build"
+  ],
   "keywords": [],
   "author": "Terry Qi <troppydash.developer@gmail.com>",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "@types/node": "^17.0.25",
     "http-server": "^14.1.0",
