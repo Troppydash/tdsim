@@ -266,7 +266,6 @@ export namespace DynamicGraphs {
         constructor(location: Vec2, size: Vec2,
                     bindings: Partial<FunctionGrapherBindings>) {
             super(location, size, [], bindings);
-
         }
 
         computePoints() {
@@ -286,6 +285,7 @@ export namespace DynamicGraphs {
                     continue;
                 this.addData([x, data]);
             }
+
         }
 
         start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {

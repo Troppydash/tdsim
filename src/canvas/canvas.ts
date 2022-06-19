@@ -44,6 +44,7 @@ interface ICanvasInputs {
 
 export class TDCanvas implements ICanvas {
     static defaultOptions: ICanvasOptions = {
+
         rate: {
             update: 240,
             speed: 1
@@ -53,7 +54,7 @@ export class TDCanvas implements ICanvas {
             height: 700,
         },
         region: {
-            scale: 100,
+            scale: 50,
             top: 0.5,
             right: 0.5
         },
@@ -83,13 +84,11 @@ export class TDCanvas implements ICanvas {
 
 
     constructor(element, options: Partial<ICanvasOptions> = {}) {
-        options = mergeDeep(TDCanvas.defaultOptions, options);
-
         this.element = element;
         this.inputs = {};
 
         this.ctx = element.getContext('2d');
-        this.options = options as ICanvasOptions;
+        this.options = mergeDeep(TDCanvas.defaultOptions, options) as ICanvasOptions;
         this.elements = [];
 
         this.time = 0;
@@ -338,8 +337,8 @@ export class TDCanvas implements ICanvas {
         const {size, region} = this.options;
 
         return [
-            size.width / region.scale * (1-region.right),
-            size.height / region.scale * (1-region.top),
+            -size.width / region.scale * (1-region.right),
+            -size.height / region.scale * (1-region.top),
         ]
     }
 

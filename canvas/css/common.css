@@ -1,3 +1,52 @@
+html, body {
+    font-family: Roboto, "sans-serif";
+}
+
 canvas {
     border: 1px solid black;
+}
+
+
+/* Dynamic Graphs */
+.dynamic-graph {
+
+}
+
+.dynamic-graph canvas {
+    border: 0.1rem solid black;
+}
+
+.dynamic-graph div.rangeContainer label {
+    display: inline-block;
+    margin-right: 1rem;
+}
+
+.dynamic-graph div.rangeContainer,
+.dynamic-graph div.variablesContainer {
+    margin-top: 0.5rem;
+}
+
+.dynamic-graph div.variablesContainer > div {
+    margin: 1rem 0;
+}
+
+.dynamic-graph div.variablesContainer > div > div {
+    display: flex;
+    align-items: center;
+}
+
+.dynamic-graph div.variablesContainer label {
+    font-size: 1.25rem;
+    font-weight: bold;
+    min-width: 200px;
+    display: block;
+}
+
+.dynamic-graph div.variablesContainer label:before {
+    content: 'Variable: ';
+}
+
+.dynamic-graph div.variablesContainer span {
+    display: inline-block;
+    margin-left: 1rem;
 }

@@ -2,8 +2,6 @@ const {canvas, sims, Computation} = tdsim;
 const {physical} = sims;
 
 
-
-
 // document on ready
 document.addEventListener('DOMContentLoaded', function () {
     const graph1 = document.getElementById('graph1');
@@ -57,23 +55,60 @@ document.addEventListener('DOMContentLoaded', function () {
         graphType: 'Dynamic',
     });
 
+    createDynamicGraph(
+        diode,
+        Diode,
+        {
+            i0: 0.1,
+            n: 1,
+            t: 1
+        },
+        {
+            canvasOptions: {
+                size: {
+                    width: 500,
+                    height: 500
+                }
+            },
+            graphOptions: {
+                xrange: [-10, 10],
+                yrange: [-2, 10]
+            }
+        }
+    )
+
     function Diode(v, p) {
         const {i0, n, t} = p;
-        return i0 * (Math.exp(v/n/t)-1)
+        return i0 * (Math.exp(v / n / t) - 1)
     }
 
-    InjectGraph({
-        ...DEFAULT_OPTIONS,
-        element: diode,
-        fn: Diode,
-        graphOptions: {
-            i0: binding.slider(diodeCurrent, 1000),
-            n: 1,
+
+    // wave equation
+    function Wave(x, p) {
+        const {A, t, k, w} = p;
+        return A * Math.sin(x*k - t * w);
+    }
+
+    createDynamicGraph(
+        document.getElementById('wave'),
+        Wave,
+        {
+            A: 1,
             t: 1,
-            xrange: [-10, 10],
-            yrange: [-5, 20]
+            k: 1,
+            w: 1,
         },
-        dx: 0.01,
-        graphType: 'Dynamic'
-    });
+        {
+            canvasOptions: {
+                size: {
+                    width: 500,
+                    height: 500
+                }
+            },
+            graphOptions: {
+                xrange: [-10, 10],
+                yrange: [-2, 2]
+            }
+        }
+    )
 });

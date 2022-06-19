@@ -73,21 +73,51 @@ export class Binding<T> implements Bindable {
         });
     }
 
-    static slider(slider: HTMLInputElement, scale: number = 100, initial?: number) {
+    static slider(slider: HTMLInputElement,
+                  scale: number = 100,
+                  {
+                      initial = null,
+                      continuous = false,
+                      changeScale
+                  }: {
+                      initial?: number,
+                      continuous?: boolean,
+                      changeScale?: (handleChange: (newScale: number) => void) => void;
+                  } = {}
+    ) {
+        let s = scale;
         return new Binding({
             type: 'number',
-            initial: initial == null ? parseFloat(slider.value) / scale : initial / scale,
+            initial: initial == null ? parseFloat(slider.value) / s : initial / s,
             bindings(handleChange) {
+
+                // this function is the worse way to implement callbacks
+                if (changeScale) {
+                    changeScale((newScale) => {
+                        s = newScale;
+                        handleChange(parseFloat(slider.value) / s);
+                    });
+                }
+
                 const handle = (e: InputEvent) => {
                     const value = parseFloat((e.currentTarget as HTMLInputElement).value);
                     if (!isNaN(value)) {
-                        handleChange(value / scale);
+                        handleChange(value / s);
                     }
                 }
-                slider.addEventListener('change', handle);
+
+                if (continuous) {
+                    slider.addEventListener('input', handle);
+                } else {
+                    slider.addEventListener('change', handle);
+                }
 
                 return () => {
-                    slider.removeEventListener('change', handle);
+                    if (continuous) {
+                        slider.removeEventListener('input', handle);
+                    } else {
+                        slider.removeEventListener('change', handle);
+                    }
                 }
             }
         })
@@ -108,15 +138,23 @@ export class Binding<T> implements Bindable {
             initial: start,
             bindings(handleChange) {
                 const handle1 = (e: InputEvent) => {
-                    const value = parseFloat((e.currentTarget as HTMLInputElement).value);
+                    let value = parseFloat((e.currentTarget as HTMLInputElement).value);
                     if (!isNaN(value)) {
+                        if (value > this.value[1] * scale) {
+                            value = this.value[1] * scale;
+                            range1.value = ""+value;
+                        }
                         handleChange([value / scale, this.value[1]]);
                     }
                 }
 
                 const handle2 = (e: InputEvent) => {
-                    const value = parseFloat((e.currentTarget as HTMLInputElement).value);
+                    let value = parseFloat((e.currentTarget as HTMLInputElement).value);
                     if (!isNaN(value)) {
+                        if (value < this.value[0] * scale) {
+                            value = this.value[0] * scale;
+                            range2.value = ""+value;
+                        }
                         handleChange([this.value[0], value / scale]);
                     }
                 }
