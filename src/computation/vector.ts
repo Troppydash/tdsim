@@ -8,9 +8,10 @@ export type Mat2 = [
 ];
 
 
-export type VecN = number[];
+export type VecN = Vec2 | Vec3 | number[];
 
 export namespace Plane {
+    export const Zero: Vec2 = [0, 0];
 
     export function VecMag(a: Vec2): Scalar {
         return Math.sqrt(a[0] * a[0] + a[1] * a[1])
@@ -108,6 +109,14 @@ export namespace Plane {
         return [
             from1[0] + lambda * dX,
             from1[1] + lambda * dY,
+        ];
+    }
+
+
+    export function VecPolar(radius: number, theta: number): Vec2 {
+        return [
+            radius * Math.cos(theta),
+            radius * Math.sin(theta)
         ];
     }
 }

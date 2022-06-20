@@ -203,14 +203,9 @@ export class TDCanvas implements ICanvas {
 
     render(newTime, reset = false) {
         // if we are hibernating
-        if (this.hibernation) {
-            if (this.ticks > 0) {
-                this.ticks -= 1;
-            } else {
-                return;
-            }
+        if (this.hibernation && this.ticks <= 0) {
+            return;
         }
-
 
         if (reset) {
             this.time = newTime;
@@ -241,9 +236,15 @@ export class TDCanvas implements ICanvas {
     }
 
     update(dt) {
-        if (this.hibernation && this.ticks <= 0) {
-            return;
+
+        if (this.hibernation) {
+            if (this.ticks > 0) {
+                this.ticks -= 1;
+            } else {
+                return;
+            }
         }
+
 
         // call updates
         for (let i = 0; i < this.elements.length; ++i) {

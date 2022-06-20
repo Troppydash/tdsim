@@ -1,11 +1,12 @@
 import {Graphing} from "../algos/graphing";
-import {ITDBaseObject, TDBaseObject, TDListElements, Traceable} from "./fundamental";
+import {IBaseObject, TDBaseObject, BaseListElements, Traceable} from "./fundamental";
 import {Binding} from "../../canvas/binding";
 import {Area, Plane, Vec2, VecN, VSpace} from "../../computation/vector";
 import {TDCanvas, TDElement} from "../../canvas/canvas";
 import {Primitives} from "../../canvas/drawers/mechanics";
 import drawCircle = Primitives.drawCircle;
 import {ContourMethods} from "../algos/contour";
+import {GeneralSolvers} from "../../computation/diffeq";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -147,11 +148,12 @@ export namespace Mechanics {
 export namespace Electricity {
 
     import HasPotential = Fields.HasPotential;
+    import HasStrength = Fields.HasStrength;
 
     /**
      *  A singular charge
      */
-    export class Charge extends TDBaseObject implements HasPotential {
+    export class Charge extends TDBaseObject implements HasPotential, HasStrength {
         DEFAULT_BINDINGS = {
             k: Binding.constant(1),
             charge: Binding.constant(1),
@@ -193,14 +195,23 @@ export namespace Electricity {
             const distance = Math.sqrt((this.pos[0] - pos[0]) ** 2 + (this.pos[1] - pos[1]) ** 2);
             return k * charge / distance;
         }
-    }
 
+        charge(): number {
+            return this.parameters.charge > 0 ? 1 : -1;
+        }
+
+        strength(pos: Vec2): Vec2 {
+            const {k, charge} = this.parameters;
+            const r = Plane.VecSubV(pos, this.pos as Vec2);
+            return Plane.VecMulC(r, k * charge / Plane.VecMag(r) ** 3);
+        }
+    }
 }
 
 export namespace Fields {
     import Method = ContourMethods.Method;
 
-    export interface HasPotential extends ITDBaseObject {
+    export interface HasPotential extends IBaseObject {
         potential(pos: Vec2): number;
     }
 
@@ -266,7 +277,8 @@ export namespace Fields {
                 object.render(parent, ctx, dt);
             }
 
-            ctx.lineWidth = 3;
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#00f';
             for (const data of this.contourData) {
                 this.method.drawer(data, ctx, parent);
             }
@@ -316,6 +328,189 @@ export namespace Fields {
         }
     }
 
+
+    class PhantomObject {
+        constructor(
+            public parent: HasStrength,
+            public pos: VecN,
+            public diffeq: GeneralSolvers.DiffEq
+        ) {
+
+            this.diffeq = this.diffeq.bind(this);
+        }
+
+        update(t: number, dt: number) {
+            // This object does not have velocity, it rather follows the acceleration vector at a constant rate
+            this.pos = Plane.VecAddV(
+                this.pos as Vec2,
+                Plane.VecReMag(
+                    this.diffeq(t, this.pos, [0, 0]) as Vec2,
+                    this.parent.charge() * dt
+                )
+            );
+        }
+    }
+
+
+    export interface HasStrength extends IBaseObject {
+        charge(): number;
+
+        strength(pos: Vec2): Vec2;
+    }
+
+    export class ElectricFields extends BaseListElements<HasStrength> {
+        // a list of list of points
+        private data: (Vec2[])[];
+
+        // Consider making this an array that is different for each charge
+        protected phantomCharges: number;
+
+        // number of ticks before update, or 1/ups, ticks is the
+        protected ticks: number;
+        protected delay: number;
+
+
+        constructor(
+            {
+                initialElements = [],
+                divergence = 16,
+                delay = -1
+            }: {
+                initialElements?: HasStrength[],
+                divergence?: number,
+                delay?: number
+            } = {}
+        ) {
+            super(initialElements);
+
+            this.data = [];
+            this.phantomCharges = divergence;
+            this.delay = delay;
+            this.ticks = 0;
+        }
+
+        acceleration(pos: Vec2): Vec2 {
+            let acc = null;
+            for (const charge of this.elements) {
+                const strength = charge.strength(pos);
+                if (acc === null) {
+                    acc = strength;
+                } else {
+                    acc = Plane.VecAddV(strength, acc);
+                }
+            }
+            return acc;
+        }
+
+        computePoints() {
+            const START_RADIUS = 0.1;
+            const MAX_DURATION = 100;
+            const MAX_DISTANCE = 10;
+            const MIN_DISTANCE = 0.1;
+            const DT = 0.01;
+
+            this.data = [];
+
+            const acc = this.acceleration.bind(this);
+            const diffeq = (_, p, __) => acc(p);
+
+            const n = this.phantomCharges
+            const phantoms: PhantomObject[] = [];
+            // spawn n phantoms for each charge
+            for (const charge of this.elements) {
+                const thetaStep = 2 * Math.PI / n;
+                for (let i = 0; i < n; ++i) {
+                    this.data.push([]);
+                    const theta = thetaStep * i;
+                    const radius = START_RADIUS;
+                    const location = Plane.VecAddV(Plane.VecPolar(radius, theta), charge.pos as Vec2);
+                    phantoms.push(
+                        new PhantomObject(
+                            charge,
+                            location,
+                            diffeq
+                        )
+                    );
+                }
+            }
+
+            // simulate for say 10 seconds
+            const duration = MAX_DURATION;
+            const dt = DT;
+            for (let t = 0; t < duration; t += dt) {
+                for (let i = 0; i < phantoms.length; ++i) {
+                    const obj = phantoms[i];
+                    if (obj === null)
+                        continue;
+                    obj.update(t, dt);
+                    this.data[i].push(obj.pos as Vec2);
+
+
+                    if (Plane.VecDist(obj.pos as Vec2, obj.parent.pos as Vec2) > MAX_DISTANCE) {
+                        phantoms[i] = null;
+                    } else {
+                        for (const element of this.elements) {
+                            if (Plane.VecDist(obj.pos as Vec2, element.pos as Vec2) < MIN_DISTANCE) {
+                                phantoms[i] = null;
+                                break;
+                            }
+                        }
+                    }
+
+
+                }
+            }
+        }
+
+        update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            super.update(parent, ctx, dt);
+
+            if (this.delay >= 0) {
+                if (this.ticks > 0) {
+                    this.ticks -= 1;
+                    return;
+                } else {
+                    this.ticks = this.delay;
+                }
+            }
+
+
+            // if (this.data.length > 0) {
+            //     return;
+            // }
+            // do stuff
+            this.computePoints();
+        }
+
+
+        render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            super.render(parent, ctx, dt);
+
+            if (this.data.length < 1) {
+                return;
+            }
+            // do stuff
+
+            // draw points
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#f00';
+            for (const points of this.data) {
+                ctx.beginPath();
+                let first = true;
+                for (const p of points) {
+                    if (first) {
+                        ctx.moveTo(...parent.pcTodc(p));
+                        first = false;
+                        continue;
+                    }
+
+                    ctx.lineTo(...parent.pcTodc(p));
+                }
+                ctx.stroke();
+            }
+        }
+
+    }
 }
 
 export namespace Groups {
@@ -325,10 +520,11 @@ export namespace Groups {
 
     export interface EnergeticSystems {
         kineticEnergy(): number;
+
         potentialEnergy(): number;
     }
 
-    export class EnergeticSystemGrapher extends TDListElements {
+    export class EnergeticSystemGrapher extends BaseListElements {
         protected system: EnergeticSystems;
 
         constructor(system: EnergeticSystems, values: string[], colors: string[], ...args: BaseGrapherConstructor) {

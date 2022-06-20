@@ -3,12 +3,12 @@ import {DiffEqSolvers, GeneralSolvers, IDiffEqSolvers} from "../../computation/d
 import {IElement, TDCanvas, TDElement, TDRawLine} from "../../canvas/canvas";
 import {Bindable, Binding} from "../../canvas/binding";
 
-export class TDListElements extends TDElement {
-    constructor(protected elements: IElement[]) {
+export class BaseListElements<Element extends IElement = IElement> extends TDElement {
+    constructor(protected elements: Element[]) {
         super();
     }
 
-    addElement(element: IElement) {
+    addElement(element: Element) {
         this.elements.push(element);
     }
 
@@ -275,7 +275,7 @@ export class BindableBase extends TDElement {
     }
 }
 
-export interface ITDBaseObject extends IElement {
+export interface IBaseObject extends IElement {
     differential: GeneralSolvers.DiffEq;
     pos: VecN;
     vel: VecN;
@@ -288,7 +288,7 @@ export interface TDBaseObjectConstructor {
     solver?: GeneralSolvers.Solvers;
 }
 
-export class TDBaseObject extends BindableBase implements ITDBaseObject {
+export class TDBaseObject extends BindableBase implements IBaseObject {
     public pos: VecN;
     public vel: VecN;
 
@@ -400,3 +400,4 @@ export class TDBaseObjectTrail extends TDElement {
 
     }
 }
+
