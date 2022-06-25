@@ -266,17 +266,7 @@ export namespace Fields {
             this.potential = this.potential.bind(this);
         }
 
-        start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
-            for (const object of this.objects) {
-                object.start(parent, ctx);
-            }
-        }
-
         render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            for (const object of this.objects) {
-                object.render(parent, ctx, dt);
-            }
-
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#00f';
             for (const data of this.contourData) {
@@ -285,10 +275,6 @@ export namespace Fields {
         }
 
         update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            for (const object of this.objects) {
-                object.update(parent, ctx, dt);
-            }
-
             // compute contour
             if (this.polling === -1 && this.contourData.length > 0) {
                 return;
@@ -310,13 +296,6 @@ export namespace Fields {
             }
 
         }
-
-        stop(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
-            for (const object of this.objects) {
-                object.stop(parent, ctx);
-            }
-        }
-
 
         potential(pos: Vec2) {
             // sum up all the potential
@@ -404,7 +383,7 @@ export namespace Fields {
 
         computePoints() {
             const START_RADIUS = 0.1;
-            const MAX_DURATION = 100;
+            const MAX_DURATION = 10;
             const MAX_DISTANCE = 10;
             const MIN_DISTANCE = 0.1;
             const DT = 0.01;
@@ -442,7 +421,13 @@ export namespace Fields {
                     const obj = phantoms[i];
                     if (obj === null)
                         continue;
+
+                    const lastPos = obj.pos;
                     obj.update(t, dt);
+                    if (Plane.VecDist(lastPos as Vec2, obj.pos as Vec2) < 0.1 * dt) {
+                        phantoms[i] = null;
+                        continue;
+                    }
                     this.data[i].push(obj.pos as Vec2);
 
 

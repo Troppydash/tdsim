@@ -1,9 +1,79 @@
 const {canvas, sims, Computation} = tdsim;
-const {physical} = sims;
+const {physical, fundamental} = sims;
+const {Binding} = canvas.binding;
+const {Electricity, Fields} = physical;
+
+function injectCharges(cvs, charges) {
+    const groups = new fundamental.BaseListElements(
+        charges
+    );
+
+    const strengthGroup = new Fields.ElectricFields({
+        divergence: 16,
+        initialElements: charges
+    });
+
+    const potentials = [];
+    for (let i = 0; i < 10; ++i) {
+        potentials.push(i * 10);
+        potentials.push(-i * 10);
+    }
+
+    const potentialGroup = new Fields.PotentialGroup(
+        potentials,
+        charges,
+        {
+            xRange: [-4, 10],
+            yRange: [-4, 10],
+            xStep: 0.1,
+            yStep: 0.1
+        },
+    );
+
+    cvs.addElement(groups, 'groups', 0);
+    cvs.addElement(strengthGroup, 'strengthGroup', 1);
+    cvs.addElement(potentialGroup, 'potentialGroup', 1);
+}
+
+
+function PlateInjector(cvs) {
+    const charges = [];
+
+    // create positive charges
+    const accuracy = 10;
+    for (let i = 0; i < accuracy; ++i) {
+        const pCharge = new Electricity.Charge({
+            p0: [1 + i * 0.5 * Math.cos(Math.PI * 60 / 180), 1 + i * 0.5 * Math.sin(Math.PI * 60 / 180)],
+            v0: [0, 0],
+            bindings: {}
+        });
+        pCharge.setConstant('charge', 1);
+        charges.push(pCharge);
+
+
+        const nCharge = new Electricity.Charge({
+            p0: [1 + i * 0.5, 1],
+            v0: [0, 0],
+            bindings: {}
+        });
+        nCharge.setConstant('charge', 1);
+        charges.push(nCharge);
+
+        const nCharge2 = new Electricity.Charge({
+            p0: [1 + (accuracy - 1) * 0.5 - i * 0.5 * Math.cos(Math.PI * 60 / 180), 1 + i * 0.5 * Math.sin(Math.PI * 60 / 180)],
+            v0: [0, 0],
+            bindings: {}
+        });
+        nCharge2.setConstant('charge', 1);
+        charges.push(nCharge2);
+    }
+
+    injectCharges(cvs, charges);
+}
+
 
 function injector(cvs) {
-    const {Binding} = canvas.binding;
-    const {Electricity, Fields} = physical;
+
 
     const slider = document.getElementById('radius');
 
@@ -36,7 +106,6 @@ function injector(cvs) {
     charge4.setConstant('charge', -0.7);
 
 
-
     const strengthGroup = new Fields.ElectricFields({
         initialElements: [charge1, charge2, charge3, charge4],
         divergence: 8
@@ -63,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const root = document.getElementById('root');
     const pause = document.getElementById('pause');
 
-    canvas.loader.InjectSimulation(injector, root, {
+    canvas.loader.InjectSimulation(PlateInjector, root, {
         region: {
             scale: 50,
             top: 0.8,
@@ -73,6 +142,6 @@ document.addEventListener('DOMContentLoaded', function () {
             hibernation: true,
             newTicks: 1,
         },
-        coord: false,
+        coord: true,
     }, pause);
 });
