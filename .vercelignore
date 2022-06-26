@@ -10,3 +10,5 @@ node_modules/
 src/
 build/types/
 build/tdsim.d.ts
+
+typing/

@@ -9,22 +9,19 @@ function injectCharges(cvs, charges) {
     );
 
     const strengthGroup = new Fields.ElectricFields({
-        divergence: 16,
-        initialElements: charges
+        divergence: 8,
+        initialElements: charges,
+        accuracy: 0.1
     });
 
-    const potentials = [];
-    for (let i = 0; i < 10; ++i) {
-        potentials.push(i * 10);
-        potentials.push(-i * 10);
-    }
+    const potentials = [10, 11, 13, 15, 17, 19, 25];
 
     const potentialGroup = new Fields.PotentialGroup(
         potentials,
         charges,
         {
-            xRange: [-4, 10],
-            yRange: [-4, 10],
+            xRange: [-4, 15],
+            yRange: [-4, 12],
             xStep: 0.1,
             yStep: 0.1
         },
@@ -35,6 +32,28 @@ function injectCharges(cvs, charges) {
     cvs.addElement(potentialGroup, 'potentialGroup', 1);
 }
 
+async function DataInjector(cvs) {
+    const data = await fetch('data.json');
+    const json = await data.json();
+
+    let charges = [];
+    for (const point of json) {
+        const [x, y] = point;
+        const realX = x / 50;
+        const realY = y / 50;
+
+        const charge = new Electricity.Charge({
+            p0: [realX - 1, 12 - realY],
+            v0: [0, 0],
+            bindings: {}
+        });
+        charge.setConstant('charge', 1);
+
+        charges.push(charge);
+    }
+
+    injectCharges(cvs, charges);
+}
 
 function PlateInjector(cvs) {
     const charges = [];
@@ -56,7 +75,7 @@ function PlateInjector(cvs) {
             v0: [0, 0],
             bindings: {}
         });
-        nCharge.setConstant('charge', 1);
+        nCharge.setConstant('charge', -1);
         charges.push(nCharge);
 
         const nCharge2 = new Electricity.Charge({
@@ -73,8 +92,6 @@ function PlateInjector(cvs) {
 
 
 function injector(cvs) {
-
-
     const slider = document.getElementById('radius');
 
     const charge1 = new Electricity.Charge({
@@ -132,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const root = document.getElementById('root');
     const pause = document.getElementById('pause');
 
-    canvas.loader.InjectSimulation(PlateInjector, root, {
+    canvas.loader.InjectSimulation(DataInjector, root, {
         region: {
             scale: 50,
             top: 0.8,

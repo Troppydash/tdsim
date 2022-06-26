@@ -1,5 +1,5 @@
 const {canvas, sims, computation} = tdsim;
-const {simple, graphing, status, fundamental} = sims;
+const {simple, graphing, status, fundamental, physical} = sims;
 
 function setup(cvs) {
     cvs.addElement(new fundamental.TDFPSClock([8, 7]))
@@ -20,7 +20,7 @@ function setup(cvs) {
     // testing
 
     // add energy graph
-    cvs.addElement(new graphing.TDEnergeticSystemGrapher(
+    cvs.addElement(new physical.Groups.EnergeticSystemGrapher(
         dblPendulum,
         ['kineticEnergy', 'potentialEnergy', 'totalEnergy'],
         ['#ff0000', '#008cff', '#000'],

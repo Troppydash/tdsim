@@ -31,7 +31,7 @@ function Injector(cvs) {
     cvs.addElement(gravity, 'gravity');
     cvs.addElement(gravityTrail, 'gravityTrail');
 
-    cvs.addElement(new graphing.TDEnergeticSystemGrapher(
+    cvs.addElement(new physical.Groups.EnergeticSystemGrapher(
         gravity,
         ["kineticEnergy", "potentialEnergy", "totalEnergy"],
         ["#ff0000", "#0094ff", "fff"],

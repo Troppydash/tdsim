@@ -344,6 +344,8 @@ export namespace Fields {
         // Consider making this an array that is different for each charge
         protected phantomCharges: number;
 
+        protected accuracy: number;
+
         // number of ticks before update, or 1/ups, ticks is the
         protected ticks: number;
         protected delay: number;
@@ -353,11 +355,13 @@ export namespace Fields {
             {
                 initialElements = [],
                 divergence = 16,
-                delay = -1
+                delay = -1,
+                accuracy = 0.1,
             }: {
                 initialElements?: HasStrength[],
                 divergence?: number,
-                delay?: number
+                delay?: number,
+                accuracy?: number,
             } = {}
         ) {
             super(initialElements);
@@ -366,6 +370,7 @@ export namespace Fields {
             this.phantomCharges = divergence;
             this.delay = delay;
             this.ticks = 0;
+            this.accuracy = accuracy;
         }
 
         acceleration(pos: Vec2): Vec2 {
@@ -386,7 +391,7 @@ export namespace Fields {
             const MAX_DURATION = 10;
             const MAX_DISTANCE = 10;
             const MIN_DISTANCE = 0.1;
-            const DT = 0.01;
+            const DT = this.accuracy;
 
             this.data = [];
 

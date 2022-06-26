@@ -23,7 +23,7 @@ async function* walk(dir) {
     // first start server at localhost:8080 in canvas/
     hserver.createServer({root: '.'}).listen(8080);
 
-    const browser = await firefox.launch({headless: true});
+    const browser = await firefox.launch({headless: false});
     const page = await browser.newPage();
 
     // visit all files in canvas/
@@ -40,12 +40,18 @@ async function* walk(dir) {
         // visit the file
         // http://localhost:8080/canvas/simulations/shm.html
         await page.goto(`http://localhost:8080/${p}`);
+        let root = true;
         // wait for canvas#root to be loaded
-        await page.waitForSelector('canvas#root');
+        try {
+            await page.waitForSelector('canvas#root', {timeout: 7000});
+        } catch (e) {
+            console.log("failed to find canvas#root, using body instead")
+            root = false;
+        }
         // wait 2 seconds
         await wait(3000);
         // take a screenshot of the canvas#root element
-        await page.locator('canvas#root').screenshot(
+        await page.locator(root ? 'canvas#root' : 'body').screenshot(
             {
                 path: `./canvas/screenshots/${p.replace('./canvas/simulations/', '')
                     .replace('.html', '.png')}`
