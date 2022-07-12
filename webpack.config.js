@@ -5,6 +5,7 @@ const outDir = path.resolve(__dirname, 'build');
 
 module.exports = {
     target: 'node',
+    devtool: 'source-map',
     mode: "development",
     entry: {
         'tdsim': './src/entry.ts',
@@ -14,7 +15,7 @@ module.exports = {
         filename: '[name].js',
         libraryTarget: "umd",
         library: 'tdsim',
-        umdNamedDefine: true
+        umdNamedDefine: true,
     },
     resolve: {
         extensions: ['.ts', '.tsx', '.js'],

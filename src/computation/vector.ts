@@ -275,6 +275,8 @@ export namespace Complex {
 
 export class Range {
     private _size: number;
+    private _iter: Pair<number>[];
+    private _values: number[];
 
     public constructor(
         public lower: number,
@@ -282,6 +284,19 @@ export class Range {
         public step: number = 1
     ) {
         this._size = Math.floor((this.upper - this.lower) / this.step);
+
+        // generate iter
+        this._iter = [];
+        this._values = [];
+        for (let i = 0, x = this.lower; i < this.size; ++i) {
+            this._iter.push([x, i]);
+            this._values.push(x);
+            x += this.step;
+        }
+    }
+
+    get lastIndex() {
+        return this._size - 1;
     }
 
     get size() {
@@ -289,14 +304,27 @@ export class Range {
     }
 
     *[Symbol.iterator]() {
-        for (let i = 0, x = this.lower; i < this.size; ++i) {
-            yield [x, i];
-            x += this.step;
-        }
+        yield* this._iter;
+    }
+
+    get iter() {
+        return this._iter;
+    }
+
+    get values() {
+        return this._values;
     }
 
     reverse(): Range {
         return new Range(this.upper, this.lower, -this.step);
+    }
+
+    ofConstant<T>(c: T): T[] {
+        let out = [];
+        for (const _ of this) {
+            out.push(c);
+        }
+        return out;
     }
 }
 
@@ -307,3 +335,6 @@ export type Area = {
     yRange: Vec2,
     yStep: number,
 };
+
+export type Pair<T, K = T> = [T, K];
+

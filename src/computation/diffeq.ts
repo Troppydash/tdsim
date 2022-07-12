@@ -1,4 +1,4 @@
-import {Complex, Plane, Range, Scalar, Vec2, VecN, VSpace} from "./vector";
+import {Complex, Pair, Plane, Range, Scalar, Vec2, VecN, VSpace} from "./vector";
 import {MotionEq} from "../sims/objects/fundamental";
 
 export type IDiffEqSolvers = (accf: MotionEq<Vec2>, p: Vec2, v: Vec2, t: number, dt: number) => [Vec2, Vec2];
@@ -140,46 +140,96 @@ export namespace SpaceTimeSolvers {
     export type IFirstOrderSolver = typeof FirstOrderSolver;
 
     // basic first order
-    export function FirstOrderSolver(equation: FirstOrderEq, xs: Complex[], dx: Range, dt: number, reverse: boolean = false): Complex[] {
+    export function FirstOrderSolver(equation: FirstOrderEq, xs: Complex[], dx: Range, dt: number): Complex[] {
         const [D, C, B, A] = equation;
         const {Add, Mul, Sub, Div, Neg} = Complex;
-
+        const FR = Complex.FromRect;
 
         let newXs = [...xs];
-        // newXs[0] = Complex.Neg(newXs[0]);
-        // newXs[newXs.length-1] = Complex.Neg(newXs[newXs.length-1]);
-
-        if (!reverse) {
-            for (const [x, i] of dx) {
-                if (i === dx.size - 1 || i === 0)
-                    continue;
-
-                const fq = Div(Sub(xs[i+1], newXs[i-1]), Complex.FromRect(2 * dx.step));
-                const f = xs[i];
-                // D * (f(x, t + dt) - f(x, t)) / dt = -C * (f(x + dx, t) - f(x, t)) / dx - B * f(x, t) - A
-                // f(x, t + dt) = f(x, t) + dt / D * (C * fx(x, t) + B * f(x, t) + A)
-                newXs[i] = Add(f, Mul(Complex.FromRect(dt), Neg(Div(Add(Add(Mul(C, fq), Mul(B, f)), A), D))));
+        for (const [x, i] of dx) {
+            // check for stencils that can be used
+            let fq;
+            if (i === 0) {
+                // use euler for first point
+                fq = Div(Sub(xs[i + 1], xs[i]), Complex.FromRect(dx.step));
+            } else if (i === dx.size - 1) {
+                // use euler for last point
+                fq = Div(Sub(xs[i], xs[i - 1]), Complex.FromRect(dx.step));
+            } else if (i === dx.size - 2 || i === 1)
+            {
+                // if 1st,2nd point, use the 2 point method
+                fq = Div(Sub(xs[i + 1], newXs[i - 1]), Complex.FromRect(2 * dx.step));
+            } else {
+                // using five-point stencil derivatives
+                // https://en.wikipedia.org/wiki/Five-point_stencil
+                fq = Div(
+                    Add(
+                        Sub(Mul(FR(8), newXs[i+1]), newXs[i+2]),
+                        Sub(newXs[i-2], Mul(FR(8), newXs[i-1])),
+                    ),
+                    FR(12 * dx.step)
+                )
             }
-        } else {
-            for (const [x, i] of dx.reverse()) {
-                if (i === 0 || i === dx.size - 1 )
-                    continue;
 
-                const ai = dx.size - 1 - i;
-                const fq = Div(Sub(newXs[ai+1], xs[ai-1]), Complex.FromRect(2 * dx.step));
-                const f = xs[ai];
-                // f(x, t + dt) = f(x, t) + dt / D * (C * fx(x, t) + B * f(x, t) + A)
-                newXs[ai] = Add(f, Mul(Complex.FromRect(dt), Neg(Div(Add(Add(Mul(C, fq), Mul(B, f)), A), D))));
-            }
+            const f = xs[i];
+            // D * (f(x, t + dt) - f(x, t)) / dt = -C * (f(x + dx, t) - f(x, t)) / dx - B * f(x, t) - A
+            // f(x, t + dt) = f(x, t) + dt / D * (C * fx(x, t) + B * f(x, t) + A)
+            newXs[i] = Add(f, Mul(Complex.FromRect(dt), Neg(Div(Add(Add(Mul(C, fq), Mul(B, f)), A), D))));
         }
-
-
 
         return newXs;
     }
+
+
+    /**
+     * Finite Difference Time Domain method
+     *
+     * Used to solve Maxwell's equations of form:
+     * dE/dt = ∇xB
+     * dB/dt = -∇xE
+     */
+
+    // assuming constant dt
+    export function Maxwell1D(Es: number[], Bs: number[], space: Range, dt: number, sources: Pair<number>[] = [], BFieldOnly: boolean = false): [number[], number[]] {
+        // reminder that the B field positions are shifted to the right by half a dx, time shifted down half a dt
+
+        const dx = space.step;
+
+        // update B fields
+        // B(x+1/2, t+1) = B(x+1/2, t) + dt / dx * (E(t+1/2, x) - E(t+1/2, x+1))
+
+        // for (const [x, i] of space.iter) {
+        let i = 0, len = space.iter.length;
+        while (i < len - 1) {
+            Bs[i] += dt / dx * (Es[i] - Es[i+1]);
+            ++i;
+        }
+
+        if (BFieldOnly) {
+            return [
+                Es,
+                Bs
+            ]
+        }
+
+        // update E fields
+        // E(x, t+1/2) = E(x, t-1/2) + dt / dx * (B(x-1/2, t) - B(x+1/2, t))
+        // performance
+        // for (const [x, i] of space.iter) {
+        i = 1;
+        while (i < len) {
+            // skip the first B field
+            Es[i] += dt / dx * (Bs[i-1] - Bs[i]);
+            ++i;
+        }
+
+        for (const [percent, amp] of sources) {
+            Es[Math.floor(percent * Es.length)] = amp;
+        }
+
+        return [
+            Es,
+            Bs
+        ]
+    }
 }
-
-export namespace DoubleSpaceTimeSolvers {
-
-}
-

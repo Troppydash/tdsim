@@ -3,7 +3,7 @@
         "outDir": "./build/types",
         "sourceMap": true,
         "module": "commonjs",
-        "target": "es5",
+        "target": "esnext",
         "declaration": true,
         "allowSyntheticDefaultImports": true,
         "esModuleInterop": true,
