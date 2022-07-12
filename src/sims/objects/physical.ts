@@ -6,7 +6,7 @@ import {TDCanvas, TDElement} from "../../canvas/canvas";
 import {Primitives} from "../../canvas/drawers/mechanics";
 import drawCircle = Primitives.drawCircle;
 import {ContourMethods} from "../algos/contour";
-import {GeneralSolvers} from "../../computation/diffeq";
+import {PhysicsSolvers} from "../../computation/diffeq";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -312,7 +312,7 @@ export namespace Fields {
         constructor(
             public parent: HasStrength,
             public pos: VecN,
-            public diffeq: GeneralSolvers.DiffEq
+            public diffeq: PhysicsSolvers.DiffEq
         ) {
 
             this.diffeq = this.diffeq.bind(this);

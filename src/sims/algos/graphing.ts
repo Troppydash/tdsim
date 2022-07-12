@@ -1,6 +1,7 @@
-import {TDCanvas} from "../../canvas/canvas";
-import {Vec2} from "../../computation/vector";
+import {ICanvas, TDCanvas} from "../../canvas/canvas";
+import {Complex, Range, Vec2} from "../../computation/vector";
 import {BindableBase, BindableBindings} from "../objects/fundamental";
+import {SpaceTimeSolvers} from "../../computation/diffeq";
 
 
 export namespace Graphing {
@@ -307,6 +308,66 @@ export namespace DynamicGraphs {
                     });
                 }
             }
+        }
+    }
+
+
+    export class SpaceTimeGrapher extends BaseGrapher {
+        protected diffEq: SpaceTimeSolvers.FirstOrderEq;
+        protected solver: SpaceTimeSolvers.IFirstOrderSolver = SpaceTimeSolvers.FirstOrderSolver;
+
+        private points: Complex[];
+        private range: Range;
+
+        private seesaw: boolean;
+
+        constructor(
+            {
+                location,
+                size,
+                bindings = {},
+                type = 'real',
+
+                diffEq,
+                range = new Range(0, 10),
+                points,
+            }: {
+                location: Vec2,
+                size: Vec2,
+                diffEq: SpaceTimeSolvers.FirstOrderEq,
+                bindings,
+                type: 'real' | 'imag' | 'both',
+                range: Range,
+                points: Complex[]
+            }
+        ) {
+            super(location, size, undefined, bindings);
+
+            this.diffEq = diffEq;
+            this.range = range;
+            this.points = points;
+            this.seesaw = false;
+        }
+
+        computePoints(dt: number, t: number) {
+            // toggle between forward and reverse sweep
+            this.points = this.solver(this.diffEq, this.points, this.range, dt, this.seesaw);
+            this.seesaw = !this.seesaw;
+        }
+
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            super.update(parent, ctx, dt);
+
+            // compute points
+            this.computePoints(dt, parent.totalTime);
+
+            // create data
+            let data = [];
+            for (const [x, i] of this.range) {
+                data.push([x, this.points[i][0]]);
+            }
+            this.setData(data);
+
         }
     }
 }

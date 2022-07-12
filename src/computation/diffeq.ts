@@ -1,4 +1,4 @@
-import {Plane, Vec2, VecN, VSpace} from "./vector";
+import {Complex, Plane, Range, Scalar, Vec2, VecN, VSpace} from "./vector";
 import {MotionEq} from "../sims/objects/fundamental";
 
 export type IDiffEqSolvers = (accf: MotionEq<Vec2>, p: Vec2, v: Vec2, t: number, dt: number) => [Vec2, Vec2];
@@ -62,7 +62,7 @@ export namespace DiffEqSolvers {
     }
 }
 
-export namespace GeneralSolvers {
+export namespace PhysicsSolvers {
     // A function differential equation
     export type DiffEq = (
         t: number,
@@ -123,3 +123,63 @@ export namespace GeneralSolvers {
     }
 
 }
+
+/**
+ * Solvers for equations of function f(q, t),
+ * where q is a n-vector and t is a scalar.
+ *
+ * Of form:
+ * `0 = A + B * fq(q, t) + C * ft(q, t) + D * fqq(q, t) + E * ftt(q, t) + F * fqt(q, t) + ...`
+ */
+export namespace SpaceTimeSolvers {
+    /**
+     * `D * ft(x, t) + C * fq(q, t) + B * f(q, t) + A = 0`
+     */
+    export type FirstOrderEq = [Complex, Complex, Complex, Complex];
+
+    export type IFirstOrderSolver = typeof FirstOrderSolver;
+
+    // basic first order
+    export function FirstOrderSolver(equation: FirstOrderEq, xs: Complex[], dx: Range, dt: number, reverse: boolean = false): Complex[] {
+        const [D, C, B, A] = equation;
+        const {Add, Mul, Sub, Div, Neg} = Complex;
+
+
+        let newXs = [...xs];
+        // newXs[0] = Complex.Neg(newXs[0]);
+        // newXs[newXs.length-1] = Complex.Neg(newXs[newXs.length-1]);
+
+        if (!reverse) {
+            for (const [x, i] of dx) {
+                if (i === dx.size - 1 || i === 0)
+                    continue;
+
+                const fq = Div(Sub(xs[i+1], newXs[i-1]), Complex.FromRect(2 * dx.step));
+                const f = xs[i];
+                // D * (f(x, t + dt) - f(x, t)) / dt = -C * (f(x + dx, t) - f(x, t)) / dx - B * f(x, t) - A
+                // f(x, t + dt) = f(x, t) + dt / D * (C * fx(x, t) + B * f(x, t) + A)
+                newXs[i] = Add(f, Mul(Complex.FromRect(dt), Neg(Div(Add(Add(Mul(C, fq), Mul(B, f)), A), D))));
+            }
+        } else {
+            for (const [x, i] of dx.reverse()) {
+                if (i === 0 || i === dx.size - 1 )
+                    continue;
+
+                const ai = dx.size - 1 - i;
+                const fq = Div(Sub(newXs[ai+1], xs[ai-1]), Complex.FromRect(2 * dx.step));
+                const f = xs[ai];
+                // f(x, t + dt) = f(x, t) + dt / D * (C * fx(x, t) + B * f(x, t) + A)
+                newXs[ai] = Add(f, Mul(Complex.FromRect(dt), Neg(Div(Add(Add(Mul(C, fq), Mul(B, f)), A), D))));
+            }
+        }
+
+
+
+        return newXs;
+    }
+}
+
+export namespace DoubleSpaceTimeSolvers {
+
+}
+

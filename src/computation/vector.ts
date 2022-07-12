@@ -1,6 +1,7 @@
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
 export type Scalar = number;
+export type Complex = Vec2;
 
 export type Mat2 = [
     number, number,
@@ -217,6 +218,86 @@ export namespace VSpace {
         return a.map(v => v / mag);
     }
 
+}
+
+export namespace Complex {
+    export function Add(c1: Complex, c2: Complex): Complex {
+        return Plane.VecAddV(c1, c2);
+    }
+
+    export function Sub(c1: Complex, c2: Complex): Complex {
+        return Plane.VecSubV(c1, c2);
+    }
+
+    export function Mul(c1: Complex, c2: Complex): Complex {
+        return [c1[0] * c2[0] - c1[1] * c2[1], c1[0] * c2[1] + c1[1] * c2[0]];
+    }
+
+    export function Inv(c: Complex): Complex {
+        const numer = Conj(c);
+        const deno = Mul(c, numer);
+        return [
+            numer[0] / deno[0],
+            numer[1] / deno[0]
+        ];
+    }
+
+
+    export function Div(c1: Complex, c2: Complex): Complex {
+        return Mul(c1, Inv(c2));
+    }
+
+    export function Conj(c: Complex): Complex {
+        return [c[0], -c[1]];
+    }
+
+    export function Neg(c: Complex): Complex {
+        return [-c[0], -c[1]];
+    }
+
+    export function Mag(c: Complex): number {
+        return Plane.VecMag(c);
+    }
+
+    export function Ang(c: Complex): number {
+        return Math.atan2(c[1], c[0]);
+    }
+
+    export function FromRect(x: number, y: number=0): Complex {
+        return [x, y];
+    }
+
+    export function FromPolar(mag: number, ang: number): Complex {
+        return [mag * Math.cos(ang), mag * Math.sin(ang)];
+    }
+}
+
+
+export class Range {
+    private _size: number;
+
+    public constructor(
+        public lower: number,
+        public upper: number,
+        public step: number = 1
+    ) {
+        this._size = Math.floor((this.upper - this.lower) / this.step);
+    }
+
+    get size() {
+        return this._size;
+    }
+
+    *[Symbol.iterator]() {
+        for (let i = 0, x = this.lower; i < this.size; ++i) {
+            yield [x, i];
+            x += this.step;
+        }
+    }
+
+    reverse(): Range {
+        return new Range(this.upper, this.lower, -this.step);
+    }
 }
 
 export type Line = [number, number, number, number];

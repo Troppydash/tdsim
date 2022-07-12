@@ -1,5 +1,5 @@
 import {Vec2, Vec3, VecN, Volume} from "../../computation/vector";
-import {DiffEqSolvers, GeneralSolvers, IDiffEqSolvers} from "../../computation/diffeq";
+import {DiffEqSolvers, PhysicsSolvers, IDiffEqSolvers} from "../../computation/diffeq";
 import {IElement, TDCanvas, TDElement, TDRawLine} from "../../canvas/canvas";
 import {Bindable, Binding} from "../../canvas/binding";
 
@@ -276,7 +276,7 @@ export class BindableBase extends TDElement {
 }
 
 export interface IBaseObject extends IElement {
-    differential: GeneralSolvers.DiffEq;
+    differential: PhysicsSolvers.DiffEq;
     pos: VecN;
     vel: VecN;
 }
@@ -285,14 +285,14 @@ export interface TDBaseObjectConstructor {
     pos?: VecN;
     vel?: VecN;
     bindings?: BindableBindings;
-    solver?: GeneralSolvers.Solvers;
+    solver?: PhysicsSolvers.Solvers;
 }
 
 export class TDBaseObject extends BindableBase implements IBaseObject {
     public pos: VecN;
     public vel: VecN;
 
-    protected solver: GeneralSolvers.Solvers = GeneralSolvers.RK4;
+    protected solver: PhysicsSolvers.Solvers = PhysicsSolvers.RK4;
 
     constructor(
         {

@@ -9,6 +9,8 @@ export interface ICanvas {
     ctx: CanvasRenderingContext2D;
     options: ICanvasOptions;
 
+    totalTime: number;
+
     pcTodc(pc: Vec2): Vec2;
     addElement(element: IElement, name?: string, layer?: number);
     drawableArea(): Vec2;
@@ -352,26 +354,26 @@ export class TDCanvas implements ICanvas {
 
 
 export interface IElement {
-    render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number): void;
+    render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number): void;
 
-    update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number): void;
+    update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number): void;
 
-    start(parent: TDCanvas, ctx: CanvasRenderingContext2D): void;
+    start(parent: ICanvas, ctx: CanvasRenderingContext2D): void;
 
-    stop(parent: TDCanvas, ctx: CanvasRenderingContext2D): void;
+    stop(parent: ICanvas, ctx: CanvasRenderingContext2D): void;
 }
 
 export class TDElement implements IElement {
-    render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+    render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
     }
 
-    update(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+    update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
     }
 
-    start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+    start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
     }
 
-    stop(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+    stop(parent: ICanvas, ctx: CanvasRenderingContext2D) {
     }
 }
 
