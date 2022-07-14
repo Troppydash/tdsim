@@ -255,6 +255,12 @@ export namespace Complex {
         return [-c[0], -c[1]];
     }
 
+    export function Pow(c: Complex, n: number): Complex {
+        let [mag, ang] = ToPolar(c);
+        ang *= n;
+        return Complex.FromPolar(mag, ang);
+    }
+
     export function Mag(c: Complex): number {
         return Plane.VecMag(c);
     }
@@ -270,6 +276,42 @@ export namespace Complex {
     export function FromPolar(mag: number, ang: number): Complex {
         return [mag * Math.cos(ang), mag * Math.sin(ang)];
     }
+
+    export function ToPolar(z: Complex): [number, number] {
+        return [Math.sqrt(z[0] * z[0] + z[1] * z[1]), Math.atan2(z[1], z[0])];
+    }
+
+    export function RootsOfUnity(n: number): Complex[] {
+        let output = [];
+        const dtheta = 2 * Math.PI / n;
+        for (let ang = 0; ang < 2 * Math.PI; ang += dtheta) {
+            output.push(Complex.FromPolar(1, ang));
+        }
+        return output;
+    }
+
+    export function RootOfUnity(n: number): Complex {
+        const dtheta = 2 * Math.PI / n;
+        return Complex.FromPolar(1, dtheta);
+    }
+
+
+    // https://stackoverflow.com/a/72906124/9341734
+    function round_number(number, decimal_places) {
+        const places = 10**decimal_places;
+        const res = Math.round(number * places)/places;
+        return(res)
+    }
+
+    export function ToString(c: Complex, prec: number=2): string {
+        if (Math.abs(c[1]) < Math.pow(10, -prec)) {
+            return `(${round_number(c[0], prec)})`;
+        }
+        if (Math.abs(c[0]) < Math.pow(10, -prec)) {
+            return `(${round_number(c[1], prec)}i)`;
+        }
+        return `(${round_number(c[0], prec)} + ${round_number(c[1], prec)}i)`;
+    }
 }
 
 
@@ -277,22 +319,42 @@ export class Range {
     private _size: number;
     private _iter: Pair<number>[];
     private _values: number[];
+    private _keys: number[];
 
     public constructor(
         public lower: number,
         public upper: number,
         public step: number = 1
     ) {
-        this._size = Math.floor((this.upper - this.lower) / this.step);
+        this._size = Math.floor((this.upper - this.lower) / this.step) + 1;
 
         // generate iter
         this._iter = [];
+        this._keys = [];
         this._values = [];
         for (let i = 0, x = this.lower; i < this.size; ++i) {
             this._iter.push([x, i]);
             this._values.push(x);
+            this._keys.push(i);
             x += this.step;
         }
+    }
+
+    static of(upper: number, step: number = 1): Range {
+        return new Range(0, upper-1, 1);
+    }
+
+    static from(list: any[], step: number = 1): Range {
+        return Range.of(list.length, step);
+    }
+
+    index<T>(list: T[]): T[] {
+        let newList = [];
+        const indexes = this._values;
+        for (const key of indexes) {
+            newList.push(list[key]);
+        }
+        return newList;
     }
 
     get lastIndex() {
