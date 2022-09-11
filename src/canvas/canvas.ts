@@ -12,6 +12,11 @@ export interface ICanvas {
     totalTime: number;
 
     pcTodc(pc: Vec2): Vec2;
+    psTods(ps: number): number;
+
+    localToWorld(local: Vec2): Vec2;
+    localToWorldScalar(local: number): number;
+
     addElement(element: IElement, name?: string, layer?: number);
     drawableArea(): Vec2;
     anchor(): Vec2;
@@ -276,6 +281,10 @@ export class TDCanvas implements ICanvas {
         return [dx, dy];
     }
 
+    localToWorld(local: Vec2): Vec2 {
+        return this.pcTodc(local);
+    }
+
     /**
      * Returns the screen scalar of a world scalar
      * @param ps The world scalar
@@ -283,6 +292,10 @@ export class TDCanvas implements ICanvas {
      */
     psTods(ps) {
         return ps * this.options.region.scale;
+    }
+
+    localToWorldScalar(local: number): number {
+        return this.psTods(local);
     }
 
     /**

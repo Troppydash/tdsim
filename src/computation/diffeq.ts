@@ -122,6 +122,18 @@ export namespace PhysicsSolvers {
         ]
     }
 
+    export function Verlet(diffeq: DiffEq, p: VecN, v: VecN, t: number, dt: number): [VecN, VecN] {
+        const Space = VSpace;
+
+        const at = diffeq(t, p, v);
+        const atdt = diffeq(t + dt, p, v);
+
+        return [
+            Space.VecAddV(p, Space.VecAddV(Space.VecMulC(v, dt), Space.VecMulC(at, 0.5 * dt * dt))),
+            Space.VecAddV(v, Space.VecMulC(Space.VecAddV(at, atdt), 0.5 * dt)),
+        ];
+    }
+
 }
 
 /**

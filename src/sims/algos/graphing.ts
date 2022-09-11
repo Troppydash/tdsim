@@ -119,7 +119,6 @@ export namespace Graphing {
         render(parent, ctx, dt) {
             const {location, size} = this;
             let {xrange, yrange, color, skip, bordered, axis} = this.parameters;
-
             const [rendered, s1] = this.sortRenderableData(0, xrange);
             if (s1) {
                 this.dataSortations[0] = true;
@@ -144,7 +143,7 @@ export namespace Graphing {
             const [xscale, yscale] = this.renderData(
                 rendered,
                 {xrange, yrange, skip, parent, ctx,},
-                color.length ? color[0] : color
+                Array.isArray(color) ? color[0] : color
             );
 
             // render
@@ -153,7 +152,7 @@ export namespace Graphing {
                 this.renderData(
                     sorted,
                     {xrange, yrange, skip, parent, ctx,},
-                    color.length ? color[i] : color
+                    Array.isArray(color) ? color[i] : color
                 );
                 if (s2) {
                     this.data[i] = sorted;

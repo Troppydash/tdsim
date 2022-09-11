@@ -2,7 +2,7 @@ import {Graphing} from "../algos/graphing";
 import {IBaseObject, TDBaseObject, BaseListElements, Traceable} from "./fundamental";
 import {Binding} from "../../canvas/binding";
 import {Area, Plane, Vec2, VecN, VSpace} from "../../computation/vector";
-import {TDCanvas, TDElement} from "../../canvas/canvas";
+import {ICanvas, TDCanvas, TDElement} from "../../canvas/canvas";
 import {Primitives} from "../../canvas/drawers/mechanics";
 import drawCircle = Primitives.drawCircle;
 import {ContourMethods} from "../algos/contour";
@@ -142,6 +142,92 @@ export namespace Mechanics {
             ];
         }
 
+    }
+
+    export class Oscillator extends TDBaseObject implements EnergeticSystems {
+        DEFAULT_BINDINGS = {
+            mass: Binding.constant(1),
+            omega: Binding.constant(1),
+            size: Binding.constant(0.25)
+        }
+
+        solver = PhysicsSolvers.Verlet;
+
+        force: (t: number) => Vec2;
+        xe: Vec2;
+        location: Vec2;
+
+        constructor(
+            {
+                location,
+                xe = [0, 0],
+                xi = [0, 0],
+                vi = [0, 0],
+                force = (_) => [0, 0],
+                bindings
+            }: {
+                location: Vec2,
+                xe: Vec2,
+                xi: Vec2,
+                vi: Vec2,
+                force: (t: number) => Vec2
+                bindings
+            }
+        ) {
+            super({
+                pos: xi,
+                vel: vi,
+                bindings,
+            });
+
+            this.location = location;
+            this.xe = xe;
+            this.force = force;
+        }
+
+        differential(t: number, p: VecN, v: VecN): VecN {
+            const {mass, omega} = this.parameters;
+            const pos = this.pos;
+            const F = this.force(t);
+
+            return [
+                (F[0] - omega ** 2 * pos[0]) / mass,
+                (F[1] - omega ** 2 * pos[1]) / mass,
+            ]
+        }
+
+
+        kineticEnergy(): number {
+            const velocity = Math.sqrt(this.vel[0] * this.vel[0] + this.vel[1] * this.vel[1]);
+            return 0.5 * this.parameters.mass * velocity * velocity;
+        }
+
+        potentialEnergy(): number {
+            // using this to graph displacement
+            return Math.sqrt(this.pos[0] ** 2 + this.pos[1] ** 2);
+        }
+
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {size} = this.parameters;
+
+            const location = this.location;
+            const start = Plane.VecAddV(this.xe, location);
+            const end = Plane.VecAddV(this.pos as Vec2, location);
+
+
+            const points = Primitives.ComputeSpring({
+                C: 0.1,
+                W: 5,
+                A: 0.2,
+            }, start, end as Vec2);
+
+            // draw spring
+            Primitives.DrawPoints(parent, ctx, points);
+
+            // draw ball
+            Primitives.DrawCircle(parent, ctx, end, size);
+        }
     }
 }
 

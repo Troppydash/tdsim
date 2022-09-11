@@ -1,4 +1,5 @@
 import {Plane, Vec2} from "../../computation/vector";
+import {ICanvas} from "../canvas";
 
 // Primitives
 export namespace Primitives {
@@ -7,8 +8,8 @@ export namespace Primitives {
         W: number; // Windings
         C: number; // Tightness
     }
-    export function drawSpring(
-        ctx: CanvasRenderingContext2D,
+
+    export function ComputeSpring(
         attr: SpringAttr,
         start: Vec2, end: Vec2
     ) {
@@ -36,6 +37,38 @@ export namespace Primitives {
 
         // draw
         return points;
+    }
+
+    export function DrawPoints(parent: ICanvas, ctx: CanvasRenderingContext2D, points: Vec2[]) {
+        ctx.beginPath();
+        ctx.moveTo(...parent.pcTodc(points[0]));
+        for (let i = 1; i < points.length; i++) {
+            ctx.lineTo(...parent.pcTodc(points[i]));
+        }
+        ctx.stroke();
+    }
+
+
+    export function drawSpring(
+        ctx: CanvasRenderingContext2D,
+        attr: SpringAttr,
+        start: Vec2, end: Vec2
+    ) {
+        return ComputeSpring(attr, start, end);
+    }
+
+
+    export function DrawCircle(
+        parent: ICanvas, ctx: CanvasRenderingContext2D,
+        at: Vec2,
+        radius: number,
+        color: string = '#000'
+    ) {
+        ctx.fillStyle = color;
+
+        ctx.beginPath();
+        ctx.arc(...parent.localToWorld(at), parent.localToWorldScalar(radius), 0, 2 * Math.PI);
+        ctx.fill();
     }
 
 

@@ -327,6 +327,12 @@ export class TDBaseObject extends BindableBase implements IBaseObject {
     }
 
 
+    /**
+     * The acceleration function at time *t*
+     * @param t The current time
+     * @param p The current position vector
+     * @param v The current velocity vector
+     */
     differential(t: number, p: VecN, v: VecN): VecN {
         throw new Error("no differential equation provided, please override the 'differential()' method");
     }

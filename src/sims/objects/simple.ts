@@ -68,6 +68,8 @@ export class TDOsillator extends TDObject {
     }
 }
 
+
+
 export class TDPendulum extends TDObject {
     protected anchor: Vec2;
     protected length: number;
