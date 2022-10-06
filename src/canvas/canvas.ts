@@ -11,6 +11,7 @@ export interface ICanvas {
 
     totalTime: number;
 
+    // backwards compat
     pcTodc(pc: Vec2): Vec2;
     psTods(ps: number): number;
 
@@ -51,9 +52,8 @@ interface ICanvasInputs {
 
 export class TDCanvas implements ICanvas {
     static defaultOptions: ICanvasOptions = {
-
         rate: {
-            update: 240,
+            update: 120,
             speed: 1
         },
         size: {
@@ -74,6 +74,7 @@ export class TDCanvas implements ICanvas {
 
     public element: HTMLCanvasElement;
     public inputs: ICanvasInputs;
+    public inputsHandler: { [key: string]: (event: any) => void };
     public ctx: CanvasRenderingContext2D;
     public options: ICanvasOptions;
     public elements: { [key: string]: IElement }[];  // layered elements
@@ -93,6 +94,7 @@ export class TDCanvas implements ICanvas {
     constructor(element, options: Partial<ICanvasOptions> = {}) {
         this.element = element;
         this.inputs = {};
+        this.inputsHandler = {};
 
         this.ctx = element.getContext('2d');
         this.options = mergeDeep(TDCanvas.defaultOptions, options) as ICanvasOptions;
@@ -124,6 +126,10 @@ export class TDCanvas implements ICanvas {
         }
     }
 
+    /**
+     * Adds lines that highlights the x and y axis
+     * @protected
+     */
     protected addCoord() {
         const {size, region} = this.options;
 
@@ -137,7 +143,11 @@ export class TDCanvas implements ICanvas {
         this.addElement(yline, 'yline', 0);
     }
 
-    start() {
+
+    /**
+     * Starts the canvas by calling start on its elements and registers all inputs
+     */
+    public start() {
         for (let i = 0; i < this.elements.length; ++i) {
             for (const element of Object.values(this.elements[i])) {
                 element.start(this, this.ctx);
@@ -147,7 +157,26 @@ export class TDCanvas implements ICanvas {
         this.registerInputs();
     }
 
-    addElement(element: IElement, name: string = null, layer = 0) {
+    /**
+     * Ends the canvas by calling stop on its elements and unregisters all inputs
+     */
+    public stop() {
+        for (const layer of this.elements) {
+            for (const element of Object.values(layer)) {
+                element.stop(this, this.ctx);
+            }
+        }
+
+        this.unregisterInputs();
+    }
+
+    /**
+     * Appends an element to the render list
+     * @param element The element object
+     * @param name The alias of the element, automatically generated otherwise
+     * @param layer The layer to add the element
+     */
+    public addElement(element: IElement, name: string = null, layer = 0) {
         if (!this.elements[layer]) {
             this.elements[layer] = {};
         }
@@ -172,7 +201,10 @@ export class TDCanvas implements ICanvas {
         this.wakeUp();
     }
 
-    clearElements() {
+    /**
+     * Removes all elements from the render list
+     */
+    public clearElements() {
         this.elements = [];
 
         if (this.options.coord) {
@@ -182,7 +214,12 @@ export class TDCanvas implements ICanvas {
         this.wakeUp();
     }
 
-    removeElement(name: string, layer = 0) {
+    /**
+     * Removes a specific element from the render list
+     * @param name The name for the element
+     * @param layer The layer of the element
+     */
+    public removeElement(name: string, layer = 0) {
         if (this.elements[layer][name]) {
             this.elements[layer][name].stop(this, this.ctx);
             delete this.elements[layer][name];
@@ -192,7 +229,10 @@ export class TDCanvas implements ICanvas {
         this.wakeUp();
     }
 
-    save() {
+    /**
+     * Saves the opengl state of the canvas
+     */
+    public save() {
         return {
             fill: this.ctx.fillStyle,
             stroke: this.ctx.strokeStyle,
@@ -201,14 +241,23 @@ export class TDCanvas implements ICanvas {
         }
     }
 
-    restore(save) {
+    /**
+     * Restores the opengl state of the canvas
+     * @param save
+     */
+    public restore(save) {
         this.ctx.fillStyle = save.fill;
         this.ctx.strokeStyle = save.stroke;
         this.ctx.font = save.font;
         this.ctx.lineWidth = save.width;
     }
 
-    render(newTime, reset = false) {
+    /**
+     * Renders a frame of the canvas
+     * @param newTime The new unix timestamp
+     * @param reset Whether to reset the current timestamp, as in unpausing
+     */
+    public render(newTime, reset = false) {
         // if we are hibernating
         if (this.hibernation && this.ticks <= 0) {
             return;
@@ -242,7 +291,11 @@ export class TDCanvas implements ICanvas {
 
     }
 
-    update(dt) {
+    /**
+     * Physics update
+     * @param dt The change in time
+     */
+    public update(dt) {
 
         if (this.hibernation) {
             if (this.ticks > 0) {
@@ -266,7 +319,7 @@ export class TDCanvas implements ICanvas {
      * @param pc The world coordinate
      * @returns {number[]} The screen coordinates
      */
-    pcTodc(pc: Vec2): Vec2 {
+    public pcTodc(pc: Vec2): Vec2 {
         const {size, region} = this.options;
         const [x, y] = pc;
 
@@ -281,7 +334,7 @@ export class TDCanvas implements ICanvas {
         return [dx, dy];
     }
 
-    localToWorld(local: Vec2): Vec2 {
+    public localToWorld(local: Vec2): Vec2 {
         return this.pcTodc(local);
     }
 
@@ -290,11 +343,11 @@ export class TDCanvas implements ICanvas {
      * @param ps The world scalar
      * @returns {number} The screen scalar
      */
-    psTods(ps) {
+    public psTods(ps) {
         return ps * this.options.region.scale;
     }
 
-    localToWorldScalar(local: number): number {
+    public localToWorldScalar(local: number): number {
         return this.psTods(local);
     }
 
@@ -303,7 +356,7 @@ export class TDCanvas implements ICanvas {
      * @param dc The screen coordinate
      * @returns {number[]} The world coordinates
      */
-    dcTopc(dc) {
+    public dcTopc(dc) {
         const {size, region} = this.options;
         const [x, y] = dc;
 
@@ -317,20 +370,50 @@ export class TDCanvas implements ICanvas {
         return [dx, dy];
     }
 
-    registerInputs() {
+    /**
+     * Registers all the mouse inputs
+     */
+    private registerInputs() {
         this.inputs.hover = null;
-        this.element.addEventListener('mousemove', event => {
-            const {clientX, clientY} = event;
-            const {left, top} = this.element.getBoundingClientRect();
-            this.inputs.hover = [clientX - left, clientY - top];
-        })
+        this.inputsHandler = {
+            mousemove(event) {
+                const {clientX, clientY} = event;
+                const {left, top} = this.element.getBoundingClientRect();
+                this.inputs.hover = [clientX - left, clientY - top];
+            },
+            mouseleave(event) {
+                this.inputs.hover = null;
+            }
+        }
 
-        this.element.addEventListener('mouseleave', event => {
-            this.inputs.hover = null;
-        })
+        // binds all input handlers
+        for (const name of Object.keys(this.inputsHandler)) {
+            this.inputsHandler[name] = this.inputsHandler[name].bind(this);
+        }
+
+        // add listeners
+        for (const [key, value] of Object.entries(this.inputsHandler)) {
+            this.element.addEventListener(key, value);
+        }
     }
 
-    input(type: 'hover', options): any {
+    /**
+     * Unregisters all inputs
+     */
+    private unregisterInputs() {
+        for (const [key, value] of Object.entries(this.inputsHandler)) {
+            this.element.removeEventListener(key, value);
+        }
+        this.inputsHandler = {};
+        this.inputs.hover = null;
+    }
+
+    /**
+     * Returns the input status of a given type
+     * @param type
+     * @param options
+     */
+    public input(type: 'hover', options): any {
         switch (type) {
             case 'hover': {
                 return this.inputs.hover;
@@ -338,7 +421,11 @@ export class TDCanvas implements ICanvas {
         }
     }
 
-    drawableArea(): Vec2 {
+
+    /**
+     * Returns the size of the local drawable area
+     */
+    public drawableArea(): Vec2 {
         const {size, region} = this.options;
         return [
             size.width / region.scale,
@@ -349,7 +436,7 @@ export class TDCanvas implements ICanvas {
     /**
      * Retrieves the coordinate of the bottom left
      */
-    anchor(): Vec2 {
+    public anchor(): Vec2 {
         const {size, region} = this.options;
 
         return [
@@ -358,7 +445,11 @@ export class TDCanvas implements ICanvas {
         ]
     }
 
-    wakeUp(duration: number = this.options.battery.newTicks) {
+    /**
+     * Wakeup to render for the next *duration* amount
+     * @param duration
+     */
+    public wakeUp(duration: number = this.options.battery.newTicks) {
         if (this.hibernation) {
             this.ticks += duration;
         }

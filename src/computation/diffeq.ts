@@ -1,8 +1,10 @@
 import {Complex, Pair, Plane, Range, Scalar, Vec2, VecN, VSpace} from "./vector";
 import {MotionEq} from "../sims/objects/fundamental";
 
+// Deprecated
 export type IDiffEqSolvers = (accf: MotionEq<Vec2>, p: Vec2, v: Vec2, t: number, dt: number) => [Vec2, Vec2];
 
+// Deprecated
 export namespace DiffEqSolvers {
     export function Euler(accf: MotionEq<Vec2>, p: Vec2, v: Vec2, t: number, dt: number): [Vec2, Vec2] {
 
@@ -126,14 +128,12 @@ export namespace PhysicsSolvers {
         const Space = VSpace;
 
         const at = diffeq(t, p, v);
-        const atdt = diffeq(t + dt, p, v);
-
-        return [
-            Space.VecAddV(p, Space.VecAddV(Space.VecMulC(v, dt), Space.VecMulC(at, 0.5 * dt * dt))),
-            Space.VecAddV(v, Space.VecMulC(Space.VecAddV(at, atdt), 0.5 * dt)),
-        ];
+        const hv = Space.VecAddV(v, Space.VecMulC(at, 0.5 * dt));
+        const np = Space.VecAddV(p, Space.VecMulC(hv, dt));
+        const atdt = diffeq(t + dt, np, v);
+        const nv = Space.VecAddV(hv, Space.VecMulC(atdt, 0.5 * dt));
+        return [np, nv];
     }
-
 }
 
 /**
@@ -204,7 +204,6 @@ export namespace SpaceTimeSolvers {
     // assuming constant dt
     export function Maxwell1D(Es: number[], Bs: number[], space: Range, dt: number, sources: Pair<number>[] = [], BFieldOnly: boolean = false): [number[], number[]] {
         // reminder that the B field positions are shifted to the right by half a dx, time shifted down half a dt
-
         const dx = space.step;
 
         // update B fields

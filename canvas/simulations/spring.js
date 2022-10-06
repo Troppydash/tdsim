@@ -9,22 +9,25 @@ function Spring(cvs) {
         [4, 7],
         0.25,
         {
-            dampt: 0,
-            dampx: 0
+            dampt: 0.1,
+            dampx: 0.1
         }
     );
     cvs.addElement(spring, 'spring');
 
-    cvs.addElement(new physical.Groups.EnergeticSystemGrapher(
+    cvs.addElement(new graphing.DynamicGraphs.EnergeticSystemGrapher(
         spring,
         ["kineticEnergy", "potentialEnergy"],
         ["#ff0000", "#0094ff", "black"],
-        [0, 0], [11, 8], [],
         {
-            xrange: [0, 4],
-            yrange: [0, 300],
-            bordered: false,
-            axis: false
+            location: [0, 0],
+            size: [11, 8],
+            bindings: {
+                xrange: [0, 4],
+                yrange: [0, 300],
+                bordered: false,
+                axis: false
+            }
         }
     ), 'grapher');
 

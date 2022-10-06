@@ -31,18 +31,21 @@ function Injector(cvs) {
     cvs.addElement(gravity, 'gravity');
     cvs.addElement(gravityTrail, 'gravityTrail');
 
-    cvs.addElement(new physical.Groups.EnergeticSystemGrapher(
-        gravity,
-        ["kineticEnergy", "potentialEnergy", "totalEnergy"],
-        ["#ff0000", "#0094ff", "fff"],
-        [-9, -5.5], [10, 6], [],
-        {
-            xrange: [0, 4],
-            yrange: [-5, 6],
-            bordered: false,
-            axis: true
-        }
-    ), 'grapher');
+    // cvs.addElement(new graphing.DynamicGraphs.EnergeticSystemGrapher(
+    //     gravity,
+    //     ["kineticEnergy", "potentialEnergy", "totalEnergy"],
+    //     ["#ff0000", "#0094ff", "fff"],
+    //     {
+    //         location: [-9, -5.5],
+    //         size: [10, 6],
+    //         bindings: {
+    //             xrange: [0, 4],
+    //             yrange: [-5, 6],
+    //             bordered: false,
+    //             axis: true
+    //         }
+    //     }
+    // ), 'grapher');
 }
 
 // document on ready

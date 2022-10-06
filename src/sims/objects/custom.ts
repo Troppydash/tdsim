@@ -1,9 +1,8 @@
 import {Plane, Vec2} from "../../computation/vector";
 import {Primitives} from "../../canvas/drawers/mechanics";
 import {TDObject} from "./fundamental";
-import {Groups} from "./physical";
-import EnergeticSystems = Groups.EnergeticSystems;
-
+import {DynamicGraphs} from "../algos/graphing";
+import EnergeticSystems = DynamicGraphs.EnergeticSystems;
 
 interface TDSpinnerAttr {
     g: number;

@@ -1,6 +1,6 @@
 import {ICanvas, TDCanvas} from "../../canvas/canvas";
 import {Complex, Pair, Range, Vec2} from "../../computation/vector";
-import {BindableBase, BindableBindings} from "../objects/fundamental";
+import {BaseListElements, BindableBase, BindableBindings} from "../objects/fundamental";
 import {SpaceTimeSolvers} from "../../computation/diffeq";
 
 
@@ -33,39 +33,54 @@ export namespace Graphing {
     export class BaseGrapher extends BindableBase {
         DEFAULT_BINDINGS: GrapherAttr = BASEGRAPHER_DEFAULT;
 
+        // Location and Size of Graph
         protected location: Vec2;
         protected size: Vec2;
         data: Graphable[];
 
+        // Have the data been sorted
         private dataSortations: boolean[];
 
         constructor(
-            location: Vec2, size: Vec2,
-            data0: Graphable = [],
-            bindings: Partial<GrapherAttr> = {}) {
+            {
+                location, size,
+                bindings = {}
+            }: {
+                location: Vec2,
+                size: Vec2,
+                bindings: Partial<GrapherAttr>
+            }
+        ) {
             super({bindings});
 
             this.location = location;
             this.size = size;
 
-            this.data = [];
-            this.data.push(data0);
+            this.data = [[]];
             this.dataSortations = [false];
         }
 
+        // Set the data at the index
         setData(data: Graphable, index: number = 0, sorted: boolean = false) {
             this.data[index] = data;
             this.dataSortations[index] = sorted;
         }
 
+        // Add to the data at the index
         addData(data: Pair<number>, index: number = 0) {
+            if (this.data[index] === undefined) {
+                console.warn(`failed to add data to the ${index} index, length(data)=${this.data.length}`);
+                return;
+            }
             this.data[index].push(data);
         }
 
+        // Clearing the data
         clearData() {
-            this.data = [];
+            this.data = [[]];
         }
 
+        // Sort the data at the ith index
         sortRenderableData(i: number, xrange): [Graphable, boolean] {
             if (this.dataSortations[i]) {
                 return [this.data[i], true];
@@ -89,6 +104,7 @@ export namespace Graphing {
             return [rendered, false];
         }
 
+        // Render the data
         renderData(data: Graphable, {xrange, yrange, skip, parent, ctx}, color: string) {
             const {location, size} = this;
 
@@ -116,6 +132,7 @@ export namespace Graphing {
             return [xscale, yscale];
         }
 
+        // Render the data
         render(parent, ctx, dt) {
             const {location, size} = this;
             let {xrange, yrange, color, skip, bordered, axis} = this.parameters;
@@ -290,6 +307,8 @@ export namespace DynamicGraphs {
     import BASEGRAPHER_DEFAULT = Graphing.BASEGRAPHER_DEFAULT;
     import GrapherAttr = Graphing.GrapherAttr;
     import Maxwell1D = SpaceTimeSolvers.Maxwell1D;
+    import BaseGrapherConstructor = Graphing.BaseGrapherConstructor;
+    import ContinuousGrapher = Graphing.ContinuousGrapher;
 
     type Function = (x: number, p: object) => number;
 
@@ -309,7 +328,7 @@ export namespace DynamicGraphs {
 
         constructor(location: Vec2, size: Vec2,
                     bindings: Partial<FunctionGrapherBindings>) {
-            super(location, size, [], bindings);
+            super({location, size, bindings});
         }
 
         computePoints() {
@@ -334,6 +353,7 @@ export namespace DynamicGraphs {
 
         start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
             super.start(parent, ctx);
+
 
             this.computePoints()
             parent.wakeUp(1);  // allow for computing
@@ -385,7 +405,7 @@ export namespace DynamicGraphs {
                 magnitude: number
             }
         ) {
-            super(location, size, undefined, bindings);
+            super({location, size, bindings});
 
             this.diffEq = diffEq;
             this.range = range;
@@ -455,7 +475,7 @@ export namespace DynamicGraphs {
                 magnitude: number
             }
         ) {
-            super(location, size, undefined, bindings);
+            super({location, size, bindings});
 
             this.range = range;
             this.points = points;
@@ -523,6 +543,46 @@ export namespace DynamicGraphs {
             }
             this.setData(data, undefined, true);
             this.setData(bfield, 1, true);
+        }
+    }
+
+
+    export interface EnergeticSystems {
+        kineticEnergy(): number;
+
+        potentialEnergy(): number;
+    }
+
+    export class EnergeticSystemGrapher extends BaseListElements {
+        protected system: EnergeticSystems;
+
+        constructor(system: EnergeticSystems, values: string[], colors: string[], ...args: BaseGrapherConstructor) {
+            const elements = [];
+            for (let i = 0; i < values.length; ++i) {
+                const value = values[i];
+                const color = colors[i];
+
+                const modifiedArgs = [
+                    {
+                        ...args[0],
+                        bindings: {
+                            ...args[0].bindings,
+                            color
+                        }
+                    }
+                ] as BaseGrapherConstructor
+
+                elements.push(
+                    new ContinuousGrapher(
+                        system[value].bind(system),
+                        ...modifiedArgs
+                    )
+                );
+            }
+
+            super(elements);
+
+            this.system = system;
         }
     }
 }

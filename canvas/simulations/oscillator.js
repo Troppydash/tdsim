@@ -1,4 +1,3 @@
-
 const {canvas, sims, computation} = tdsim;
 const {simple, fundamental, physical, graphing} = sims;
 
@@ -10,22 +9,23 @@ function injector(cvs) {
         xe: [0, 0],
         xi: [0, 0],
         force(time) {
-            return [2 * Math.cos(time + 1) + Math.sin(time) , 0];
+            return [2 * Math.cos(time + 1) + Math.sin(time), 0];
         }
     })
 
-    const grapher = new physical.Groups.EnergeticSystemGrapher(
+    const grapher = new graphing.DynamicGraphs.EnergeticSystemGrapher(
         oscillator,
-        [ "potentialEnergy"],
+        ["potentialEnergy"],
         ["#0094ff"],
-        [0, 0],
-        [10, 5],
-        [],
         {
-            xrange: [0, 10],
-            yrange: [-5, 6],
-            bordered: false,
-            axis: true
+            location: [0, 0],
+            size: [10, 5],
+            bindings: {
+                xrange: [0, 10],
+                yrange: [-5, 6],
+                bordered: false,
+                axis: true
+            }
         }
     )
 

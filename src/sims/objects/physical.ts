@@ -1,4 +1,4 @@
-import {Graphing} from "../algos/graphing";
+import {DynamicGraphs, Graphing} from "../algos/graphing";
 import {IBaseObject, TDBaseObject, BaseListElements, Traceable} from "./fundamental";
 import {Binding} from "../../canvas/binding";
 import {Area, Plane, Vec2, VecN, VSpace} from "../../computation/vector";
@@ -12,7 +12,7 @@ const G = 5e-3;
 const Mass = 1e4;
 
 export namespace Mechanics {
-    import EnergeticSystems = Groups.EnergeticSystems;
+    import EnergeticSystems = DynamicGraphs.EnergeticSystems;
 
     export class OrbitalMotion extends TDBaseObject implements EnergeticSystems, Traceable {
         DEFAULT_BINDINGS = {
@@ -589,48 +589,4 @@ export namespace Fields {
     }
 }
 
-export namespace Groups {
-
-    import ContinuousGrapher = Graphing.ContinuousGrapher;
-    import BaseGrapherConstructor = Graphing.BaseGrapherConstructor;
-
-    export interface EnergeticSystems {
-        kineticEnergy(): number;
-
-        potentialEnergy(): number;
-    }
-
-    export class EnergeticSystemGrapher extends BaseListElements {
-        protected system: EnergeticSystems;
-
-        constructor(system: EnergeticSystems, values: string[], colors: string[], ...args: BaseGrapherConstructor) {
-            const elements = [];
-            for (let i = 0; i < values.length; ++i) {
-                const value = values[i];
-                const color = colors[i];
-
-                let modifiedArgs = [
-                    ...args
-                ] as typeof args;
-                modifiedArgs[2] = [];  // so the data is not reused
-                modifiedArgs[3] = {
-                    ...modifiedArgs[modifiedArgs.length - 1],
-                    color
-                };
-
-                elements.push(
-                    new ContinuousGrapher(
-                        system[value].bind(system),
-                        ...modifiedArgs
-                    )
-                );
-            }
-
-            super(elements);
-
-            this.system = system;
-        }
-    }
-
-}
 

@@ -1,9 +1,10 @@
 const {canvas, sims, Computation} = tdsim;
 const {physical} = sims;
+const {InjectGraph, CreateDynamicGraph} = canvas.loader;
 
 
 // document on ready
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     const graph1 = document.getElementById('graph1');
     const graph2 = document.getElementById('graph2');
     const graph2Input = document.getElementById('graph2Input');
@@ -35,15 +36,18 @@ document.addEventListener('DOMContentLoaded', function () {
         pause: pause
     }
 
-    const InjectGraph = canvas.loader.InjectGraph;
-    InjectGraph({
+
+    /// CREATE REGULAR STATIC GRAPH
+    await InjectGraph({
         ...DEFAULT_OPTIONS,
         element: graph1,
         fn: x => Math.sin(x),
         dx: 0.01,
     });
+
+    /// CREATE DYNAMIC FUNCTION GRAPH
     const bindableFn = binding.function(graph2Input);
-    InjectGraph({
+    await InjectGraph({
         ...DEFAULT_OPTIONS,
         graphOptions: {
             xrange: binding.range(graph2xlower, graph2xlupper, 100),
@@ -55,7 +59,12 @@ document.addEventListener('DOMContentLoaded', function () {
         graphType: 'Dynamic',
     });
 
-    createDynamicGraph(
+    /// CREATE DYNAMIC DIODE GRAPHS
+    function Diode(v, p) {
+        const {i0, n, t} = p;
+        return i0 * (Math.exp(v / n / t) - 1)
+    }
+    await CreateDynamicGraph(
         diode,
         Diode,
         {
@@ -77,23 +86,24 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     )
 
-    function Diode(v, p) {
-        const {i0, n, t} = p;
-        return i0 * (Math.exp(v / n / t) - 1)
-    }
 
-
+    /// CREATE DYNAMIC WAVES GRAPHS
     // wave equation
     function Wave(x, p) {
         const {A, t, k, w} = p;
         return A * Math.sin(x*k - t * w);
     }
 
-    createDynamicGraph(
+    await CreateDynamicGraph(
         document.getElementById('wave'),
         Wave,
         {
-            A: 1,
+            A: {
+                lower: -10,
+                upper: 10,
+                scale: 100,
+                value: 2
+            },
             t: 1,
             k: 1,
             w: 1,

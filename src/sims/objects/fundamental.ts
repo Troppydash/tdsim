@@ -292,7 +292,7 @@ export class TDBaseObject extends BindableBase implements IBaseObject {
     public pos: VecN;
     public vel: VecN;
 
-    protected solver: PhysicsSolvers.Solvers = PhysicsSolvers.RK4;
+    protected solver: PhysicsSolvers.Solvers = PhysicsSolvers.Verlet;
 
     constructor(
         {

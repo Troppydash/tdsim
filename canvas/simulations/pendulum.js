@@ -20,19 +20,21 @@ function setup(cvs) {
     // testing
 
     // add energy graph
-    cvs.addElement(new physical.Groups.EnergeticSystemGrapher(
+    cvs.addElement(new graphing.DynamicGraphs.EnergeticSystemGrapher(
         dblPendulum,
         ['kineticEnergy', 'potentialEnergy', 'totalEnergy'],
         ['#ff0000', '#008cff', '#000'],
-        [1, 1], [13, 8],
-        [],
         {
-            xrange: [0, 4],
-            yrange: [0, 300],
-            bordered: false,
-            axis: false
+            location: [1, 1],
+            size:  [13, 8],
+            bindings: {
+                xrange: [0, 4],
+                yrange: [0, 300],
+                bordered: false,
+                axis: false
+            }
         }
-    ))
+    ));
 }
 
 // document on ready
