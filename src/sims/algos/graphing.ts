@@ -114,6 +114,8 @@ export namespace Graphing {
 
             const xscale = size[0] / (xrange[1] - xrange[0]);
             const yscale = size[1] / (yrange[1] - yrange[0]);
+            let lastypos = 0; // this is used so that no vertical line appears for discont functions
+            const delta = 0.1;
             for (let i = 0; i < data.length; i++) {
                 if (skip !== 0 && data.length - i > skip && i % skip !== 0)
                     continue;
@@ -121,11 +123,16 @@ export namespace Graphing {
                 const [x, y] = data[i];
                 const xpos = location[0] + (x - xrange[0]) * xscale;
                 const ypos = location[1] + (y - yrange[0]) * yscale;
-                if (i === 0 || (y < yrange[0] || y > yrange[1])) {
+                if (
+                    i === 0 || (y < yrange[0]
+                        || y > yrange[1])
+                        || Math.abs(lastypos - ypos) > Math.abs(yrange[1] - yrange[0]) * delta
+                ) {
                     ctx.moveTo(...parent.pcTodc([xpos, ypos]));
                 } else {
                     ctx.lineTo(...parent.pcTodc([xpos, ypos]));
                 }
+                lastypos = ypos;
             }
             ctx.stroke();
 
@@ -447,13 +454,14 @@ export namespace DynamicGraphs {
 
     export class MaxwellGrapher extends BaseGrapher {
         protected range: Range;
-        protected magnitude: number;
 
         private points: number[];
         private Bfield: number[] | null;
 
         private dt: number;
         private sources: Pair<number, SourceFunction>[] = [];
+
+        private lastE: [number, number];
 
         constructor(
             {
@@ -463,7 +471,7 @@ export namespace DynamicGraphs {
                 range = new Range(0, 10),
                 points,
                 bfield = null,
-                magnitude = 1e3
+                dt = 1 / 120
             }: {
                 location: Vec2,
                 size: Vec2,
@@ -472,17 +480,17 @@ export namespace DynamicGraphs {
                 range: Range,
                 points: number[],
                 bfield: number[],
-                magnitude: number
+                dt: number
             }
         ) {
             super({location, size, bindings});
 
             this.range = range;
             this.points = points;
-            this.magnitude = magnitude;
             this.Bfield = bfield;
+            this.lastE = [0, 0];
 
-            this.dt = 0.0001;
+            this.dt = dt;
         }
 
         addSource(at: number, source: SourceFunction) {
@@ -495,32 +503,18 @@ export namespace DynamicGraphs {
             // compute first Bfield
             if (this.Bfield === null) {
                 this.Bfield = this.range.ofConstant(0);
-                Maxwell1D(this.points, this.Bfield, this.range, this.dt, undefined, true);
             }
         }
 
         computePoints(dt: number, t: number) {
-            const lastTime = t - dt;
-            let i = 0;
-            while (dt > this.dt) {
-                const sources = this.sources.map(source => [
-                    source[0],
-                    source[1](lastTime + i * this.dt)
-                ] as Pair<number>)
-                // function modify this.points
-                Maxwell1D(this.points, this.Bfield, this.range, this.dt, sources);
-                dt -= this.dt;
-                ++i;
-            }
-
-            // run if remain dt more than half of this.dt
-            if (dt > this.dt / 2) {
-                const sources = this.sources.map(source => [
-                    source[0],
-                    source[1](t - this.dt / 2)
-                ] as Pair<number>)
-                Maxwell1D(this.points, this.Bfield, this.range, this.dt, sources);
-            }
+            const sources = this.sources.map(source => [
+                source[0],
+                source[1](t)
+            ] as Pair<number>)
+            // function modify this.points
+            const newLastE = [this.points[1], this.points[this.points.length - 2]] as [number, number];
+            Maxwell1D(this.points, this.Bfield, this.range, this.dt, sources, false, this.lastE[0], this.lastE[1]);
+            this.lastE = newLastE;
         }
 
         update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {

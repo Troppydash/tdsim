@@ -202,32 +202,23 @@ export namespace SpaceTimeSolvers {
      */
 
     // assuming constant dt
-    export function Maxwell1D(Es: number[], Bs: number[], space: Range, dt: number, sources: Pair<number>[] = [], BFieldOnly: boolean = false): [number[], number[]] {
+    export function Maxwell1D(
+        Es: number[], Bs: number[],
+        space: Range, dt: number,
+        sources: Pair<number>[] = [],
+        BFieldOnly: boolean = false,
+        lastEx: number = 0,
+        lastEKx: number = 0,
+    ): [number[], number[]] {
         // reminder that the B field positions are shifted to the right by half a dx, time shifted down half a dt
         const dx = space.step;
-
-        // update B fields
-        // B(x+1/2, t+1) = B(x+1/2, t) + dt / dx * (E(t+1/2, x) - E(t+1/2, x+1))
-
-        // for (const [x, i] of space.iter) {
-        let i = 0, len = space.iter.length;
-        while (i < len - 1) {
-            Bs[i] += dt / dx * (Es[i] - Es[i+1]);
-            ++i;
-        }
-
-        if (BFieldOnly) {
-            return [
-                Es,
-                Bs
-            ]
-        }
 
         // update E fields
         // E(x, t+1/2) = E(x, t-1/2) + dt / dx * (B(x-1/2, t) - B(x+1/2, t))
         // performance
         // for (const [x, i] of space.iter) {
-        i = 1;
+        let i = 1;
+        let len = space.iter.length;
         while (i < len) {
             // skip the first B field
             Es[i] += dt / dx * (Bs[i-1] - Bs[i]);
@@ -236,6 +227,19 @@ export namespace SpaceTimeSolvers {
 
         for (const [percent, amp] of sources) {
             Es[Math.floor(percent * Es.length)] = amp;
+        }
+
+        // open boundary
+        Es[len-1] = lastEKx;
+        Es[0] = lastEx;
+
+        // update B fields
+        // B(x+1/2, t+1) = B(x+1/2, t) + dt / dx * (E(t+1/2, x) - E(t+1/2, x+1))
+        // for (const [x, i] of space.iter) {
+        i = 0;
+        while (i < len - 1) {
+            Bs[i] += dt / dx * (Es[i] - Es[i+1]);
+            ++i;
         }
 
         return [

@@ -14,7 +14,8 @@ function injectCharges(cvs, charges) {
         accuracy: 0.1
     });
 
-    const potentials = [10, 11, 13, 15, 17, 19, 25];
+    // const potentials = [10, 11, 13, 15, 17, 19, 25];
+    const potentials = [1, 3, 5, -1, -3, -5];
 
     const potentialGroup = new Fields.PotentialGroup(
         potentials,
@@ -55,7 +56,7 @@ async function DataInjector(cvs) {
     injectCharges(cvs, charges);
 }
 
-function PlateInjector(cvs) {
+function TriInjector(cvs) {
     const charges = [];
 
     // create positive charges
@@ -90,8 +91,31 @@ function PlateInjector(cvs) {
     injectCharges(cvs, charges);
 }
 
+function PlateInjector(cvs) {
+    const charges = [];
 
-function injector(cvs) {
+    for (let i = 0; i < 10; ++i) {
+        const pCharge = new Electricity.Charge({
+            p0: [0.5 * i, 1],
+            v0: [0, 0],
+            bindings: {}
+        });
+        pCharge.setConstant('charge', 1);
+        charges.push(pCharge);
+
+        const nCharge = new Electricity.Charge({
+            p0: [0.5 * i, 0],
+            v0: [0, 0],
+            bindings: {}
+        });
+        pCharge.setConstant('charge', -1);
+        charges.push(nCharge);
+    }
+
+    injectCharges(cvs, charges)
+}
+
+function Injector(cvs) {
     const slider = document.getElementById('radius');
 
     const charge1 = new Electricity.Charge({
@@ -136,29 +160,47 @@ function injector(cvs) {
         {
             xRange: [-5, 10],
             yRange: [-5, 10],
-            xStep: 0.02,
-            yStep: 0.02
+            xStep: 0.1,
+            yStep: 0.1
         },
     );
 
     cvs.addElement(group, 'potentialGroup');
 }
 
+
+
 // document on ready
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
     const root = document.getElementById('root');
     const pause = document.getElementById('pause');
 
-    canvas.loader.InjectSimulation(DataInjector, root, {
-        region: {
-            scale: 50,
-            top: 0.8,
-            right: 0.8,
+    const plate = document.getElementById('plate');
+    const def = document.getElementById('def');
+    const sus = document.getElementById('Sus');
+    const tri = document.getElementById('tri');
+
+    const stop = await canvas.loader.InjectSelectable(
+        'default',
+        {
+            'default': [def, Injector],
+            'plate': [plate, PlateInjector],
+            'sus': [sus, DataInjector],
+            'tri': [tri, TriInjector]
         },
-        battery: {
-            hibernation: true,
-            newTicks: 1,
+        root,
+        {
+            region: {
+                scale: 50,
+                top: 0.8,
+                right: 0.8,
+            },
+            battery: {
+                hibernation: true,
+                newTicks: 1,
+            },
+            coord: true,
         },
-        coord: true,
-    }, pause);
+        pause
+    )
 });

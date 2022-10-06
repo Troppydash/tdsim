@@ -296,7 +296,6 @@ export class TDCanvas implements ICanvas {
      * @param dt The change in time
      */
     public update(dt) {
-
         if (this.hibernation) {
             if (this.ticks > 0) {
                 this.ticks -= 1;
@@ -304,7 +303,6 @@ export class TDCanvas implements ICanvas {
                 return;
             }
         }
-
 
         // call updates
         for (let i = 0; i < this.elements.length; ++i) {

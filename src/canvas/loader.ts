@@ -2,7 +2,6 @@ import {ICanvas, ICanvasOptions, TDCanvas} from "./canvas";
 import {DynamicGraphs, Graphing} from "../sims/algos/graphing";
 import FunctionGrapher = Graphing.FunctionGrapher;
 import GrapherAttr = Graphing.GrapherAttr;
-import {Vec2} from "../computation/vector";
 import {Binding} from "./binding";
 
 interface AnimateOperations {
@@ -419,4 +418,53 @@ function makeid(length) {
             charactersLength));
     }
     return result;
+}
+
+
+export async function InjectSelectable(
+    initial: string,
+    selection: {
+        [key: string]: [HTMLButtonElement, Injector]
+    },
+    element: HTMLCanvasElement,
+    canvasOptions: ICanvasOptions,
+    pause: null | HTMLButtonElement = null
+) {
+    // check for null
+    if (Object.keys(selection).length == 0) {
+        console.warn("no selections available, returning");
+        return;
+    }
+
+    // default to first
+    let currentSelection = initial;
+    let stopHandle;
+
+    stopHandle = await InjectSimulation(selection[initial][1], element, canvasOptions, pause);
+
+
+    let handlers = {};
+    for (const [name, [button, injector]] of Object.entries(selection)) {
+        const handler = async (event) => {
+            // do not switch if switching to the same injector
+            if (currentSelection == name) {
+                return;
+            }
+
+            // switch to this
+            stopHandle();
+            currentSelection = name;
+            stopHandle = await InjectSimulation(injector, element, canvasOptions, pause);
+        };
+        handlers[name] = handler;
+        button.addEventListener('click', handler);
+    }
+
+
+    return () => {
+        // cleanup
+        for (const key of Object.keys(selection)) {
+            selection[key][0].removeEventListener('click', handlers[key]);
+        }
+    }
 }

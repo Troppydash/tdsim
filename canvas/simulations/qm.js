@@ -6,17 +6,17 @@ function MaxwellInjector(cvs) {
     const {MaxwellGrapher} = graphing.DynamicGraphs;
     const { Range } = computation.vector;
 
-    const range = new Range(0, 100, 0.1);
+    const range = new Range(0, 10, 1 / 60);
     let points = [];
     let bfield = null;
     // generate points
     for (const [x, i] of range) {
         // const y1 = Math.cos(2 * Math.PI * (x - 30)) * Math.exp(-(((x - 30)) ** 2));
         // const y2 = Math.cos(2 * Math.PI *(x - 7)) * Math.exp(-(((x - 7)) ** 2));
-        const y = Math.exp(-((0.1 * (x - 50)) ** 2))
+        // const y = Math.exp(-((2 * (x - 5)) ** 2))
         // const y2 = 1.5 * Math.exp(-(((x - 7)) ** 2))
         // const y = x > 20 && x < 40 ? 1 : 0;
-        points.push(y)
+        points.push(0)
         // if (x > 30) {
         //     points.push(Math.sin(2 * 3.14 * 0.05 * x));
         //     bfield.push(Math.sin(2 * 3.14 * 0.05 * x));
@@ -34,13 +34,14 @@ function MaxwellInjector(cvs) {
         bfield,
         range: range,
         bindings: {
-            xrange: [-1, 100],
+            xrange: [-1, 11],
             yrange: [-1, 3],
             color: ['#f00', '#00f']
         }
     });
+    graph.addSource(0.1, t => Math.sin(t))
     // graph.addSource(0.3, t => {
-    //     return 2 * Math.exp(-0.5 * ((t - 10) / 2) ** 2)
+    //     return Math.exp(-0.5 * ((t - 3) / 2) ** 2)
     //     // return Math.sin(2 * 3.14 * 0.05 * t)
     // })
 
