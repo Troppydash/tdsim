@@ -39,10 +39,10 @@ function MaxwellInjector(cvs) {
             color: ['#f00', '#00f']
         }
     });
-    graph.addSource(0.3, t => {
-        return 2 * Math.exp(-0.5 * ((t - 10) / 2) ** 2)
-        // return Math.sin(2 * 3.14 * 0.05 * t)
-    })
+    // graph.addSource(0.3, t => {
+    //     return 2 * Math.exp(-0.5 * ((t - 10) / 2) ** 2)
+    //     // return Math.sin(2 * 3.14 * 0.05 * t)
+    // })
 
     cvs.addElement(graph, 'graph');
 
