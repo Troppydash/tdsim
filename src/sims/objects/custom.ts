@@ -1,7 +1,7 @@
-import {Plane, Vec2} from "../../computation/vector";
-import {Primitives} from "../../canvas/drawers/mechanics";
-import {TDObject} from "./fundamental";
-import {DynamicGraphs} from "../algos/graphing";
+import {Plane, Vec2} from "../../computation/vector.js";
+import {Primitives} from "../../canvas/drawers/mechanics.js";
+import {TDObject} from "./fundamental.js";
+import {DynamicGraphs} from "../algos/graphing.js";
 import EnergeticSystems = DynamicGraphs.EnergeticSystems;
 
 interface TDSpinnerAttr {

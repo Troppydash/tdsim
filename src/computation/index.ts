@@ -1,1 +1,1 @@
-export * as vector from './vector';
+export * as vector from './vector.js';

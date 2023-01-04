@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "outDir": "./build/tdsim",
+        "sourceMap": true,
+        "module": "ES2020",
+        "target": "ES2015",
+        "declaration": true,
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "downlevelIteration": true
+    },
+    "exclude": [
+        "node_modules"
+    ],
+    "include": [
+        "src/**/*"
+    ]
+}

@@ -1,8 +1,8 @@
-import {Mat2, Plane, Vec2} from "../../computation/vector";
-import {TDElement} from "../../canvas/canvas";
-import {Primitives} from "../../canvas/drawers/mechanics";
-import {TDObject} from "./fundamental";
-import {DynamicGraphs} from "../algos/graphing";
+import {Mat2, Plane, Vec2} from "../../computation/vector.js";
+import {TDElement} from "../../canvas/canvas.js";
+import {Primitives} from "../../canvas/drawers/mechanics.js";
+import {TDObject} from "./fundamental.js";
+import {DynamicGraphs} from "../algos/graphing.js";
 import EnergeticSystems = DynamicGraphs.EnergeticSystems;
 
 export class TDBall extends TDObject {

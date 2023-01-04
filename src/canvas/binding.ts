@@ -1,4 +1,4 @@
-import {evalInContext} from "../lib/eval";
+import {evalInContext} from "../lib/eval.js";
 
 type BindableType = "text" | "number" | "const" | "function" | "range";
 

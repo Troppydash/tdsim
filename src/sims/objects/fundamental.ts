@@ -1,7 +1,7 @@
-import {Vec2, Vec3, VecN, Volume} from "../../computation/vector";
-import {DiffEqSolvers, PhysicsSolvers, IDiffEqSolvers} from "../../computation/diffeq";
-import {IElement, TDCanvas, TDElement, TDRawLine} from "../../canvas/canvas";
-import {Bindable, Binding} from "../../canvas/binding";
+import {Vec2, Vec3, VecN, Volume} from "../../computation/vector.js";
+import {DiffEqSolvers, PhysicsSolvers, IDiffEqSolvers} from "../../computation/diffeq.js";
+import {IElement, TDCanvas, TDElement, TDRawLine} from "../../canvas/canvas.js";
+import {Bindable, Binding} from "../../canvas/binding.js";
 
 export class BaseListElements<Element extends IElement = IElement> extends TDElement {
     constructor(protected elements: Element[]) {

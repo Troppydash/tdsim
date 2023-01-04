@@ -1,7 +1,7 @@
-import {ICanvas, TDCanvas} from "../../canvas/canvas";
-import {Complex, Pair, Range, Vec2} from "../../computation/vector";
-import {BaseListElements, BindableBase, BindableBindings} from "../objects/fundamental";
-import {SpaceTimeSolvers} from "../../computation/diffeq";
+import {ICanvas, TDCanvas} from "../../canvas/canvas.js";
+import {Complex, Pair, Range, Vec2} from "../../computation/vector.js";
+import {BaseListElements, BindableBase, BindableBindings} from "../objects/fundamental.js";
+import {SpaceTimeSolvers} from "../../computation/diffeq.js";
 
 
 export namespace Graphing {

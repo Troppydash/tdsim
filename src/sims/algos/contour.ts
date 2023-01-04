@@ -1,8 +1,8 @@
 // IMPLEMENTS THE CONTOUR DRAWING OF A SCALAR MAP ALGORITHM
 
 // MARCHING SQUARES or BRUTE-FORCE BILINEAR SCALING
-import {Area, Line, Vec2} from "../../computation/vector";
-import {ICanvas} from "../../canvas/canvas";
+import {Area, Line, Vec2} from "../../computation/vector.js";
+import {ICanvas} from "../../canvas/canvas.js";
 
 export namespace ContourMethods {
     export type Method<T> = {

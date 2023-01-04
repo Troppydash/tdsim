@@ -1,5 +1,5 @@
-import {Vec2} from "../computation/vector";
-import {mergeDeep} from "../lib/merge";
+import {Vec2} from "../computation/vector.js";
+import { mergeDeep } from "../lib/merge.js";
 
 
 export interface ICanvas {
@@ -13,6 +13,11 @@ export interface ICanvas {
     // backwards compat
     pcTodc(pc: Vec2): Vec2;
     psTods(ps: number): number;
+
+
+    start(): void;
+    stop(): void;
+    render(newTime: number, reset?: boolean): void;
 
     localToWorld(local: Vec2): Vec2;
     localToWorldScalar(local: number): number;
@@ -111,7 +116,7 @@ export class TDCanvas implements ICanvas {
 
         // coords
         if (this.options.coord) {
-            this.addCoord();
+            this.addAxis();
         }
 
         // battery saving
@@ -127,14 +132,21 @@ export class TDCanvas implements ICanvas {
      * Adds lines that highlights the x and y axis
      * @protected
      */
-    protected addCoord() {
+    private addAxis() {
         const {size, region} = this.options;
 
         const xY = region.top * size.height;
-        const xline = new TDRawLine([0, xY], [size.width, xY]);
-
         const yX = (1 - region.right) * size.width;
-        const yline = new TDRawLine([yX, 0], [yX, size.height]);
+
+        const [up, down, left, right] = [
+            [0, xY],
+            [size.width, xY],
+            [yX, 0],
+            [yX, size.height]
+        ] as Vec2[];
+
+        const xline = new TDRawLine(up, down);
+        const yline = new TDRawLine(left, right);
 
         this.addElement(xline, 'xline', 0);
         this.addElement(yline, 'yline', 0);
@@ -205,7 +217,7 @@ export class TDCanvas implements ICanvas {
         this.elements = [];
 
         if (this.options.coord) {
-            this.addCoord();
+            this.addAxis();
         }
 
         this.wakeUp();
@@ -292,7 +304,7 @@ export class TDCanvas implements ICanvas {
      * Physics update
      * @param dt The change in time
      */
-    public update(dt) {
+    private update(dt) {
         if (this.hibernation) {
             if (this.ticks > 0) {
                 this.ticks -= 1;

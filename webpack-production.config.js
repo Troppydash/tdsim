@@ -4,7 +4,7 @@ const nodeExternals = require('webpack-node-externals');
 const outDir = path.resolve(__dirname, 'build');
 
 module.exports = {
-    target: 'node',
+    // target: 'node',
     mode: "production",
     entry: {
         'tdsim': './src/entry.ts',
@@ -18,6 +18,9 @@ module.exports = {
     },
     resolve: {
         extensions: ['.ts', '.tsx', '.js'],
+        extensionAlias: {
+            '.js': ['.ts', '.js']
+        }
     },
     externals: [nodeExternals()],
     module: {

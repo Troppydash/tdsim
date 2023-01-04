@@ -1,8 +1,8 @@
-import { ICanvas, CanvasOptions, TDCanvas } from "./canvas";
-import { DynamicGraphs, Graphing } from "../sims/algos/graphing";
+import { ICanvas, CanvasOptions, TDCanvas } from "./canvas.js";
+import { DynamicGraphs, Graphing } from "../sims/algos/graphing.js";
 import FunctionGrapher = Graphing.FunctionGrapher;
 import GrapherAttr = Graphing.GrapherAttr;
-import { Binding } from "./binding";
+import { Binding } from "./binding.js";
 
 
 interface AnimateOperations {
@@ -14,7 +14,7 @@ interface AnimateOperations {
  * Starts the Animation Loop on a specific canvas, returns a list of playback operations
  * @param canvas
  */
-function animate(canvas: TDCanvas): AnimateOperations {
+function animate(canvas: ICanvas): AnimateOperations {
     let isPaused = false;
     let isStopped = false;
     let unPaused = false;
@@ -69,7 +69,8 @@ export async function InjectSimulation(
     injector: Injector,
     element: HTMLCanvasElement,
     canvasOptions: Partial<CanvasOptions> = {},
-    pause: HTMLButtonElement | null = null
+    pause: HTMLButtonElement | null = null,
+    autostart: boolean = true
 ): Promise<() => void> {
     // setup
     if (!element.getContext) {
@@ -83,11 +84,15 @@ export async function InjectSimulation(
     const handles = animate(canvas);
 
     // add handlers
-    function pauseHandler(event) {
+    function pauseHandler() {
         handles.pause();
     }
 
     pause && pause.addEventListener('click', pauseHandler);
+
+    if (!autostart) {
+        pauseHandler();
+    }
 
     return () => {
         pause && pause.removeEventListener('click', pauseHandler);
@@ -191,11 +196,11 @@ export async function InjectGraph(
 
 /**
  * Inject a graph with dynamically generated options
- * @param element 
- * @param fn 
- * @param variables 
- * @param settings 
- * @returns 
+ * @param element
+ * @param fn
+ * @param variables
+ * @param settings
+ * @returns
  */
 export async function CreateDynamicGraph(
     element: HTMLElement,
@@ -433,12 +438,12 @@ function makeid(length) {
 
 /**
  * Inject a graph with dynamically selectable options
- * @param initial 
- * @param selection 
- * @param element 
- * @param canvasOptions 
- * @param pause 
- * @returns 
+ * @param initial
+ * @param selection
+ * @param element
+ * @param canvasOptions
+ * @param pause
+ * @returns
  */
 export async function InjectSelectable(
     initial: string,
@@ -484,6 +489,57 @@ export async function InjectSelectable(
         // cleanup
         for (const key of Object.keys(selection)) {
             selection[key][0].removeEventListener('click', handlers[key]);
+        }
+    }
+}
+
+
+
+
+
+interface LoaderOptions {
+    autostart: boolean;
+}
+
+interface LoaderControls {
+    stop: () => void;
+    pause: () => void;
+}
+
+/**
+ * A loader class that handles the injecting of a **single** canvas
+ *
+ * @example
+ * const canvas = new TDCanvas(...);
+ * const loader = new Loader();
+ * await loader.inject(canvas, (cvs) => {});
+ */
+export class Loader {
+    options: LoaderOptions = {
+        autostart: true,
+    }
+
+    constructor(options: Partial<LoaderOptions> = {}) {
+        this.options = { ...this.options, ...options };
+    }
+
+    async inject(canvas: ICanvas, injector: Injector): Promise<LoaderControls> {
+        const cleanup = await injector(canvas);
+        const {stop, pause} = animate(canvas);
+        const {autostart} = this.options;
+
+        if (!autostart) {
+            pause();
+        }
+
+        return {
+            stop() {
+                if (cleanup) {
+                    cleanup();
+                }
+                stop();
+            },
+            pause,
         }
     }
 }

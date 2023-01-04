@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fields Simulation</title>
+</head>
+<body>
+
+<div>
+    <button id="pause">Pause</button>
+</div>
+<div>
+    <canvas id="canvas" style="border: 1px solid purple">
+
+    </canvas>
+</div>
+
+
+<script type="importmap">
+    {
+        "imports": {
+            "tdsim/": "../../build/tdsim/",
+            "tdsim": "../../build/tdsim/entry.js"
+        }
+    }
+</script>
+<script type="module">
+    import {Loader} from "tdsim/canvas/loader.js";
+    import {TDCanvas} from "tdsim/canvas/canvas.js";
+    import {TDDoublePendulum} from "tdsim/sims/objects/simple.js";
+
+    async function main() {
+        // create canvas
+        const canvas = new TDCanvas(
+            document.getElementById('canvas'),
+            {
+                coord: true,
+                region: {
+                    right: 0.8,
+                    top: 0.8,
+                    scale: 50
+                }
+            }
+        );
+
+        const loader = new Loader({
+            autostart: true
+        });
+        const controls = await loader.inject(canvas, canvas => {
+            const pendulum = new TDDoublePendulum(
+                0.5, 0.5, [0, 0], [3, 3], 1, 1, 1, 1, 0.25, '#000000'
+            );
+            canvas.addElement(pendulum);
+        });
+
+        document.getElementById('pause').addEventListener('click', controls.pause);
+
+    }
+
+    document.addEventListener('DOMContentLoaded', main);
+</script>
+
+</body>
+</html>

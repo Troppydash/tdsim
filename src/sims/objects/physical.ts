@@ -1,12 +1,12 @@
-import {DynamicGraphs, Graphing} from "../algos/graphing";
-import {IBaseObject, TDBaseObject, BaseListElements, Traceable} from "./fundamental";
-import {Binding} from "../../canvas/binding";
-import {Area, Plane, Vec2, VecN, VSpace} from "../../computation/vector";
-import {ICanvas, TDCanvas, TDElement} from "../../canvas/canvas";
-import {Primitives} from "../../canvas/drawers/mechanics";
+import {DynamicGraphs, Graphing} from "../algos/graphing.js";
+import {IBaseObject, TDBaseObject, BaseListElements, Traceable} from "./fundamental.js";
+import {Binding} from "../../canvas/binding.js";
+import {Area, Plane, Vec2, VecN, VSpace} from "../../computation/vector.js";
+import {ICanvas, TDCanvas, TDElement} from "../../canvas/canvas.js";
+import {Primitives} from "../../canvas/drawers/mechanics.js";
 import drawCircle = Primitives.drawCircle;
-import {ContourMethods} from "../algos/contour";
-import {PhysicsSolvers} from "../../computation/diffeq";
+import {ContourMethods} from "../algos/contour.js";
+import {PhysicsSolvers} from "../../computation/diffeq.js";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -589,8 +589,14 @@ export namespace Fields {
     }
 
 
-    // Scalar Fields
 
+
+
+
+
+
+
+    // scalar fields
 
 
 

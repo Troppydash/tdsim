@@ -1,3 +1,3 @@
-export * as loader from './loader';
-export * as canvas from './canvas';
-export * as binding from './binding';
+export * as loader from './loader.js';
+export * as canvas from './canvas.js';
+export * as binding from './binding.js';

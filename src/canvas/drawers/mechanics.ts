@@ -1,5 +1,5 @@
-import {Plane, Vec2} from "../../computation/vector";
-import {ICanvas} from "../canvas";
+import {Plane, Vec2} from "../../computation/vector.js";
+import {ICanvas} from "../canvas.js";
 
 // Primitives
 export namespace Primitives {

@@ -1,4 +1,4 @@
-import {Complex, Pair, Range} from "../../computation/vector";
+import {Complex, Pair, Range} from "../../computation/vector.js";
 import FromRect = Complex.FromRect;
 
 export namespace Polynomial {
