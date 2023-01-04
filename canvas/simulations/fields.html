@@ -31,22 +31,37 @@
     import {TDCanvas} from "tdsim/canvas/canvas.js";
     import {TDDoublePendulum} from "tdsim/sims/objects/simple.js";
 
+    function autopause(setPause) {
+        let hasFocus = true;
+        setInterval(() => {
+            const newFocus = document.hasFocus();
+            if (newFocus !== hasFocus) {
+                setPause(!newFocus);
+            }
+            hasFocus = newFocus;
+        }, 500);
+    }
+
+
     async function main() {
         // create canvas
         const canvas = new TDCanvas(
             document.getElementById('canvas'),
             {
-                coord: true,
+                axis: {
+                    axis: true,
+                    labels: true,
+                },
                 region: {
                     right: 0.8,
                     top: 0.8,
-                    scale: 50
+                    scale: 100
                 }
             }
         );
 
         const loader = new Loader({
-            autostart: true
+            autostart: true,
         });
         const controls = await loader.inject(canvas, canvas => {
             const pendulum = new TDDoublePendulum(
@@ -56,6 +71,7 @@
         });
 
         document.getElementById('pause').addEventListener('click', controls.pause);
+        autopause(controls.pause);
 
     }
 

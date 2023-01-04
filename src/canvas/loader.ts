@@ -6,8 +6,10 @@ import { Binding } from "./binding.js";
 
 
 interface AnimateOperations {
-    stop: () => void;
-    pause: () => void;
+    stop(): void;
+    pause(): void;
+    setPause(state: boolean): void;
+    isPaused(): boolean;
 }
 
 /**
@@ -47,6 +49,13 @@ function animate(canvas: ICanvas): AnimateOperations {
             canvas.stop();
             isPaused = true;
             isStopped = true;
+        },
+        setPause(state: boolean) {
+            isPaused = state;
+            unPaused = true;
+        },
+        isPaused() {
+            return isPaused;
         }
     }
 }

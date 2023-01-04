@@ -1,6 +1,6 @@
-import {Vec2} from "../computation/vector.js";
-import { mergeDeep } from "../lib/merge.js";
-
+import {Plane, Vec2} from "../computation/vector.js";
+import {mergeDeep} from "../lib/merge.js";
+import {TDRawLine, TDText} from "./drawers/basics.js";
 
 export interface ICanvas {
     element: HTMLCanvasElement;
@@ -12,19 +12,27 @@ export interface ICanvas {
 
     // backwards compat
     pcTodc(pc: Vec2): Vec2;
+
     psTods(ps: number): number;
 
 
     start(): void;
+
     stop(): void;
+
     render(newTime: number, reset?: boolean): void;
 
     localToWorld(local: Vec2): Vec2;
+
     localToWorldScalar(local: number): number;
 
     addElement(element: IElement, name?: string, layer?: number);
+
     drawableArea(): Vec2;
+
     anchor(): Vec2;
+
+    borders(): { up: Vec2, down: Vec2, left: Vec2, right: Vec2 };
 
     wakeUp(duration: number);
 }
@@ -43,7 +51,11 @@ export interface CanvasOptions {
         top: number;
         right: number;
     }
-    coord: boolean;
+    axis: {
+        axis: boolean;
+        labels: boolean;
+    }
+    coord: boolean;  // deprecated
     battery: {
         hibernation: boolean;
         newTicks: number;
@@ -54,6 +66,13 @@ interface CanvasInputs {
     hover?: [number, number];
 }
 
+/**
+ * The main JS canvas rendering class
+ *
+ * @example
+ * const canvas = new TDCanvas(button, {});
+ * canvas.addElement(..., "firstElement");
+ */
 export class TDCanvas implements ICanvas {
     static defaultOptions: CanvasOptions = {
         rate: {
@@ -69,7 +88,11 @@ export class TDCanvas implements ICanvas {
             top: 0.5,
             right: 0.5
         },
-        coord: false,
+        axis: {
+            axis: false,
+            labels: false,
+        },
+        coord: false,  // deprecated
         battery: {
             hibernation: false,
             newTicks: 2
@@ -115,7 +138,7 @@ export class TDCanvas implements ICanvas {
         element.height = size.height;
 
         // coords
-        if (this.options.coord) {
+        if (this.options.axis.axis || this.options.coord) {
             this.addAxis();
         }
 
@@ -139,17 +162,46 @@ export class TDCanvas implements ICanvas {
         const yX = (1 - region.right) * size.width;
 
         const [up, down, left, right] = [
+            [yX, 0],
+            [yX, size.height],
             [0, xY],
             [size.width, xY],
-            [yX, 0],
-            [yX, size.height]
         ] as Vec2[];
 
-        const xline = new TDRawLine(up, down);
-        const yline = new TDRawLine(left, right);
+        const xline = new TDRawLine(left, right);
+        const yline = new TDRawLine(up, down);
 
-        this.addElement(xline, 'xline', 0);
-        this.addElement(yline, 'yline', 0);
+        this.addElement(xline, '@xline', 0);
+        this.addElement(yline, '@yline', 0);
+
+        // add labels, the displacement for each label uses some magic numbers
+        if (this.options.axis.labels) {
+            const scale = region.scale;
+            const borders = this.borders();
+
+            const upText = new TDText(
+                `${Math.round(borders.up[1])}`,
+                Plane.VecAddV(borders.up, [5 / scale, -25 / scale])
+            );
+            const downText = new TDText(
+                `${Math.round(borders.down[1])}`,
+                Plane.VecAddV(borders.down, [5 / scale, 10 / scale])
+            );
+
+            const leftText = new TDText(
+                `${Math.round(borders.left[0])}`,
+                Plane.VecAddV(borders.left, [5 / scale, -25 / scale])
+            );
+            const rightText = new TDText(
+                `${Math.round(borders.right[0])}`,
+                Plane.VecAddV(borders.right, [-40 / scale, -25 / scale])
+            );
+
+            this.addElement(upText, '@upText', 0);
+            this.addElement(downText, '@downText', 0);
+            this.addElement(leftText, '@leftText', 0);
+            this.addElement(rightText, '@rightText', 0);
+        }
     }
 
 
@@ -447,9 +499,28 @@ export class TDCanvas implements ICanvas {
         const {size, region} = this.options;
 
         return [
-            -size.width / region.scale * (1-region.right),
-            -size.height / region.scale * (1-region.top),
+            -size.width / region.scale * (1 - region.right),
+            -size.height / region.scale * (1 - region.top),
         ]
+    }
+
+    /**
+     * Returns an object containing the local coordinates of the up, down, left, and right borders.
+     */
+    public borders(): {
+        up: Vec2;
+        down: Vec2;
+        left: Vec2;
+        right: Vec2;
+    } {
+        const anchor = this.anchor();
+        const size = this.drawableArea();
+        return {
+            up: [0, anchor[1] + size[1]],
+            down: [0, anchor[1]],
+            left: [anchor[0], 0],
+            right: [anchor[0] + size[0], 0],
+        };
     }
 
     /**
@@ -474,41 +545,4 @@ export interface IElement {
     stop(parent: ICanvas, ctx: CanvasRenderingContext2D): void;
 }
 
-export class TDElement implements IElement {
-    render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-    }
 
-    update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-    }
-
-    start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
-    }
-
-    stop(parent: ICanvas, ctx: CanvasRenderingContext2D) {
-    }
-}
-
-export class TDRawLine extends TDElement {
-    protected from: Vec2;
-    protected to: Vec2;
-    width: number;
-    color: string;
-
-    constructor(from: Vec2, to: Vec2, width = 2, color = '#000000') {
-        super();
-
-        this.from = from;
-        this.to = to;
-        this.width = width;
-        this.color = color;
-    }
-
-    render(parent, ctx, dt) {
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = this.width;
-        ctx.beginPath();
-        ctx.moveTo(...this.from);
-        ctx.lineTo(...this.to);
-        ctx.stroke();
-    }
-}

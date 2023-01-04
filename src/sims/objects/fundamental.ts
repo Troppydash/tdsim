@@ -1,8 +1,19 @@
 import {Vec2, Vec3, VecN, Volume} from "../../computation/vector.js";
 import {DiffEqSolvers, PhysicsSolvers, IDiffEqSolvers} from "../../computation/diffeq.js";
-import {IElement, TDCanvas, TDElement, TDRawLine} from "../../canvas/canvas.js";
+import {IElement, TDCanvas} from "../../canvas/canvas.js";
 import {Bindable, Binding} from "../../canvas/binding.js";
+import {TDElement, TDRawLine} from "../../canvas/drawers/basics.js";
 
+/**
+ * Represents an abstract group of elements
+ *
+ * @example
+ * export class Planets extends BaseListElements {
+ *     constructor(planets: Planets) {
+ *         super(planets);
+ *     }
+ * }
+ */
 export class BaseListElements<Element extends IElement = IElement> extends TDElement {
     constructor(protected elements: Element[]) {
         super();
@@ -35,6 +46,12 @@ export class BaseListElements<Element extends IElement = IElement> extends TDEle
     }
 }
 
+/**
+ * Represent a line
+ *
+ * @example
+ * const line = new TDLine([0, 0], [1, 1], 1, '#ff0000');
+ */
 export class TDLine extends TDRawLine {
     render(parent, ctx, dt) {
         ctx.strokeStyle = this.color;
@@ -132,6 +149,10 @@ export class TDFPSClock extends TDElement {
         this.uc += 1;
     }
 }
+
+
+
+
 
 // Deprecated
 export type MotionEq<T> = (
@@ -232,12 +253,12 @@ export interface BindableBindings {
     [name: string]: Bindable | any;
 }
 
-export class BindableBase extends TDElement {
+export abstract class BindableBase extends TDElement {
     protected bindings: BindableBindings;
 
     protected DEFAULT_BINDINGS: BindableBindings | null = null;
 
-    constructor({bindings}: { bindings: BindableBindings }) {
+    protected constructor({bindings}: { bindings: BindableBindings }) {
         super();
 
         this.bindings = bindings;
@@ -344,10 +365,14 @@ export class TDBaseObject extends BindableBase implements IBaseObject {
     }
 }
 
+
 export interface Traceable {
     location(): Vec2;
 }
 
+/**
+ * Represents the trace of a physical object
+ */
 export class TDBaseObjectTrail extends TDElement {
     protected step: number;
     protected limit: number;
