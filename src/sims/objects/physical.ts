@@ -587,6 +587,13 @@ export namespace Fields {
         }
 
     }
+
+
+    // Scalar Fields
+
+
+
+
 }
 
 

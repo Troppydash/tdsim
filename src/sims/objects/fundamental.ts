@@ -133,6 +133,7 @@ export class TDFPSClock extends TDElement {
     }
 }
 
+// Deprecated
 export type MotionEq<T> = (
     t: number,
     a: T,
@@ -140,6 +141,7 @@ export type MotionEq<T> = (
     p: T,
 ) => T;
 
+// Deprecated
 export class TDObject<T = {}> extends TDElement {
     DefaultAttr: T;
     protected attr: T;
@@ -190,6 +192,7 @@ export class TDObject<T = {}> extends TDElement {
     }
 }
 
+// Deprecated
 export class TDObject3D extends TDElement {
     protected pos: Vec3;
     protected vel: Vec3;
@@ -288,6 +291,9 @@ export interface TDBaseObjectConstructor {
     solver?: PhysicsSolvers.Solvers;
 }
 
+/**
+ * The base physics object responsible for physical simulation of n-dimensions
+ */
 export class TDBaseObject extends BindableBase implements IBaseObject {
     public pos: VecN;
     public vel: VecN;

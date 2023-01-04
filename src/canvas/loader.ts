@@ -1,8 +1,9 @@
-import {ICanvas, ICanvasOptions, TDCanvas} from "./canvas";
-import {DynamicGraphs, Graphing} from "../sims/algos/graphing";
+import { ICanvas, CanvasOptions, TDCanvas } from "./canvas";
+import { DynamicGraphs, Graphing } from "../sims/algos/graphing";
 import FunctionGrapher = Graphing.FunctionGrapher;
 import GrapherAttr = Graphing.GrapherAttr;
-import {Binding} from "./binding";
+import { Binding } from "./binding";
+
 
 interface AnimateOperations {
     stop: () => void;
@@ -10,7 +11,7 @@ interface AnimateOperations {
 }
 
 /**
- * Starts the Animation Loop
+ * Starts the Animation Loop on a specific canvas, returns a list of playback operations
  * @param canvas
  */
 function animate(canvas: TDCanvas): AnimateOperations {
@@ -51,7 +52,9 @@ function animate(canvas: TDCanvas): AnimateOperations {
 }
 
 
-// The Type of Injector, takes the canvas as input, returns an optional function for cleanup
+/**
+ The Type of Injector, takes the canvas as input, returns an optional function for cleanup
+ */
 type Injector = (canvas: ICanvas) => Promise<void | (() => void)>;
 
 /**
@@ -60,12 +63,12 @@ type Injector = (canvas: ICanvas) => Promise<void | (() => void)>;
  * @param element The canvas element
  * @param canvasOptions Some options for canvas
  * @param pause The pause button element
- * @constructor
+ * @returns Cleanup function
  */
 export async function InjectSimulation(
     injector: Injector,
     element: HTMLCanvasElement,
-    canvasOptions: Partial<ICanvasOptions> = {},
+    canvasOptions: Partial<CanvasOptions> = {},
     pause: HTMLButtonElement | null = null
 ): Promise<() => void> {
     // setup
@@ -78,6 +81,7 @@ export async function InjectSimulation(
     const stop = await injector(canvas);
 
     const handles = animate(canvas);
+
     // add handlers
     function pauseHandler(event) {
         handles.pause();
@@ -126,7 +130,7 @@ export async function InjectGraph(
         fn: (...args: any) => any | Binding<(...args: any) => any>,
         dx: number,
         graphOptions: Partial<GrapherAttr>,
-        canvasOptions: Partial<ICanvasOptions>,
+        canvasOptions: Partial<CanvasOptions>,
         graphType: GraphType,
         pause: HTMLButtonElement | null,
         injector: Injector | null
@@ -141,7 +145,7 @@ export async function InjectGraph(
                 canvas.addElement(
                     new FunctionGrapher(
                         fn as any, dx,
-                        {location, size, bindings: graphOptions}
+                        { location, size, bindings: graphOptions }
                     ),
                     'static graph'
                 );
@@ -185,11 +189,18 @@ export async function InjectGraph(
 }
 
 
-
+/**
+ * Inject a graph with dynamically generated options
+ * @param element 
+ * @param fn 
+ * @param variables 
+ * @param settings 
+ * @returns 
+ */
 export async function CreateDynamicGraph(
     element: HTMLElement,
     fn: any,
-    variables: {[key: string]: number | {lower: number, upper: number, scale: number, value: number}},
+    variables: { [key: string]: number | { lower: number, upper: number, scale: number, value: number } },
     settings: any
 ): Promise<() => void> {
     const ce = (ele) => document.createElement(ele);
@@ -226,7 +237,7 @@ export async function CreateDynamicGraph(
         xrangeLowerInput.type = 'number';
 
         xrangeUpperInput = ce('input');
-        xrangeUpperInput.value =  xr ? xr[1] : 10;
+        xrangeUpperInput.value = xr ? xr[1] : 10;
         xrangeUpperInput.type = 'number';
 
         xrange.appendChild(xrangeLabel);
@@ -420,14 +431,22 @@ function makeid(length) {
     return result;
 }
 
-
+/**
+ * Inject a graph with dynamically selectable options
+ * @param initial 
+ * @param selection 
+ * @param element 
+ * @param canvasOptions 
+ * @param pause 
+ * @returns 
+ */
 export async function InjectSelectable(
     initial: string,
     selection: {
         [key: string]: [HTMLButtonElement, Injector]
     },
     element: HTMLCanvasElement,
-    canvasOptions: ICanvasOptions,
+    canvasOptions: CanvasOptions,
     pause: null | HTMLButtonElement = null
 ) {
     // check for null

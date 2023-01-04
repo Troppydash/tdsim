@@ -1,13 +1,12 @@
-import {Plane, Vec2, Vec3, Volume} from "../computation/vector";
-import {DiffEqSolvers, IDiffEqSolvers} from "../computation/diffeq";
+import {Vec2} from "../computation/vector";
 import {mergeDeep} from "../lib/merge";
 
-// todo: make this all methods
+
 export interface ICanvas {
     element: HTMLCanvasElement;
     inputs: object;
     ctx: CanvasRenderingContext2D;
-    options: ICanvasOptions;
+    options: CanvasOptions;
 
     totalTime: number;
 
@@ -25,7 +24,7 @@ export interface ICanvas {
     wakeUp(duration: number);
 }
 
-export interface ICanvasOptions {
+export interface CanvasOptions {
     rate: {
         update: number;
         speed: number;
@@ -46,12 +45,12 @@ export interface ICanvasOptions {
     }
 }
 
-interface ICanvasInputs {
+interface CanvasInputs {
     hover?: [number, number];
 }
 
 export class TDCanvas implements ICanvas {
-    static defaultOptions: ICanvasOptions = {
+    static defaultOptions: CanvasOptions = {
         rate: {
             update: 120,
             speed: 1
@@ -73,10 +72,10 @@ export class TDCanvas implements ICanvas {
     }
 
     public element: HTMLCanvasElement;
-    public inputs: ICanvasInputs;
+    public inputs: CanvasInputs;
     public inputsHandler: { [key: string]: (event: any) => void };
     public ctx: CanvasRenderingContext2D;
-    public options: ICanvasOptions;
+    public options: CanvasOptions;
     public elements: { [key: string]: IElement }[];  // layered elements
 
     protected time: number;
@@ -88,16 +87,14 @@ export class TDCanvas implements ICanvas {
     protected hibernation: boolean;
     protected ticks: number;
 
-    // CONSTANTS
 
-
-    constructor(element, options: Partial<ICanvasOptions> = {}) {
+    constructor(element, options: Partial<CanvasOptions> = {}) {
         this.element = element;
         this.inputs = {};
         this.inputsHandler = {};
 
         this.ctx = element.getContext('2d');
-        this.options = mergeDeep(TDCanvas.defaultOptions, options) as ICanvasOptions;
+        this.options = mergeDeep(TDCanvas.defaultOptions, options) as CanvasOptions;
         this.elements = [];
 
         this.time = 0;

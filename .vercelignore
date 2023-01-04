@@ -12,3 +12,6 @@ build/types/
 build/tdsim.d.ts
 
 typing/
+
+.idea
+.vscode

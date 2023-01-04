@@ -103,12 +103,12 @@ export namespace Polynomial {
 }
 
 
-const p1 = Polynomial.FromReal(2, 2, 2, 2);
-const p2 = Polynomial.FromReal(1, 1);
+// const p1 = Polynomial.FromReal(2, 2, 2, 2);
+// const p2 = Polynomial.FromReal(1, 1);
 
-console.log(Polynomial.ToString(p1));
-console.log(Polynomial.ToString(p2));
-console.log(Polynomial.ToString(Polynomial.Mul(p1, p2)))
+// console.log(Polynomial.ToString(p1));
+// console.log(Polynomial.ToString(p2));
+// console.log(Polynomial.ToString(Polynomial.Mul(p1, p2)))
 // const p1 = Polynomial.FromReal(2, 1);
 // console.log(Polynomial.IFFT(Polynomial.FFT(p1)))
 // console.log(Polynomial.FFT([FromRect(1), FromRect(1), FromRect(1), FromRect(1)]).map(Complex.ToString));
