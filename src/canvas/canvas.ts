@@ -1,6 +1,7 @@
 import {Plane, Vec2} from "../computation/vector.js";
 import {mergeDeep} from "../lib/merge.js";
 import {TDRawLine, TDText} from "./drawers/basics.js";
+import {TDFPSClock} from "./drawers/basics.js";
 
 export interface ICanvas {
     element: HTMLCanvasElement;
@@ -51,9 +52,10 @@ export interface CanvasOptions {
         top: number;
         right: number;
     }
-    axis: {
+    attachments: {
         axis: boolean;
         labels: boolean;
+        counter: boolean;
     }
     coord: boolean;  // deprecated
     battery: {
@@ -88,9 +90,10 @@ export class TDCanvas implements ICanvas {
             top: 0.5,
             right: 0.5
         },
-        axis: {
+        attachments: {
             axis: false,
             labels: false,
+            counter: false
         },
         coord: false,  // deprecated
         battery: {
@@ -138,8 +141,12 @@ export class TDCanvas implements ICanvas {
         element.height = size.height;
 
         // coords
-        if (this.options.axis.axis || this.options.coord) {
+        if (this.options.attachments.axis || this.options.coord) {
             this.addAxis();
+        }
+
+        if (this.options.attachments.counter) {
+            this.addCounter();
         }
 
         // battery saving
@@ -175,7 +182,7 @@ export class TDCanvas implements ICanvas {
         this.addElement(yline, '@yline', 0);
 
         // add labels, the displacement for each label uses some magic numbers
-        if (this.options.axis.labels) {
+        if (this.options.attachments.labels) {
             const scale = region.scale;
             const borders = this.borders();
 
@@ -202,6 +209,19 @@ export class TDCanvas implements ICanvas {
             this.addElement(leftText, '@leftText', 0);
             this.addElement(rightText, '@rightText', 0);
         }
+    }
+
+    /**
+     * Adds a fps counter on the bottom left of the canvas
+     * @private
+     */
+    private addCounter() {
+        // uses a magic number 10 as the padding of the fps counter
+        const scale = this.options.region.scale;
+        const counter = new TDFPSClock(
+            Plane.VecAddV(this.anchor(), [10 / scale, 10 / scale])
+        );
+        this.addElement(counter, '@counter', 0);
     }
 
 
@@ -238,14 +258,18 @@ export class TDCanvas implements ICanvas {
      * @param layer The layer to add the element
      */
     public addElement(element: IElement, name: string = null, layer = 0) {
-        if (!this.elements[layer]) {
-            this.elements[layer] = {};
+        if (this.elements.length <= layer) {
+            // create layers til the new layer
+            for (let l = this.elements.length; l <= layer; ++l) {
+                this.elements.push({});
+            }
         }
 
-        if (name === null || name.length === 0) {
+        if (name == null || name.length === 0) {
             name = 'untitled';
         }
 
+        // if the name already exists
         if (this.elements[layer][name]) {
             // generate a unique name
             let newName = name;

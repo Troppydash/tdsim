@@ -10,7 +10,8 @@
     "test": "ts-node src/sims/algos/pure.ts",
     "build-screenshot": "node build.js",
     "build-modules": "tsc --project tsconfig.modules.json",
-    "build-modules-watch": "tsc --watch --project tsconfig.modules.json "
+    "build-modules-watch": "tsc --watch --project tsconfig.modules.json",
+    "dev-server": "http-server ."
   },
   "files": [
     "/build"

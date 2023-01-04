@@ -1,6 +1,7 @@
 package.json
 package-lock.json
 tsconfig.json
+tsconfig.modules.json
 webpack.config.js
 webpack-production.config.js
 

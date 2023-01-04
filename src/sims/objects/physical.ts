@@ -1,7 +1,7 @@
 import {DynamicGraphs, Graphing} from "../algos/graphing.js";
 import {IBaseObject, TDBaseObject, BaseListElements, Traceable} from "./fundamental.js";
 import {Binding} from "../../canvas/binding.js";
-import {Area, Plane, Vec2, VecN, VSpace} from "../../computation/vector.js";
+import {Area, Plane, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
 import {ICanvas, TDCanvas} from "../../canvas/canvas.js";
 import {Primitives} from "../../canvas/drawers/mechanics.js";
 import drawCircle = Primitives.drawCircle;
@@ -587,12 +587,88 @@ export namespace Fields {
                 ctx.stroke();
             }
         }
+    }
 
+
+    // colormaps for fields
+    export namespace ColorMap {
+        // [red, green, blue]
+        type Color = Vec3;
+
+        /**
+         * Clamp and Round the unlimited color value to 0..255
+         * @param color
+         */
+        function restrictColor(color: Color): Color {
+            const restrict = (value, lower = 0, upper = 255) => Math.floor(Math.max(lower, Math.min(upper, value)));
+            return [restrict(color[0]), restrict(color[1]), restrict(color[2])];
+        }
+
+        export function colorToHex(color: Color): string {
+            return '#' + color.map(c => c.toString(16).padStart(2, '0')).join('');
+        }
+
+        // takes a normalized value from 0 to 1 and returns a hex color
+        export type CMap = (normVal: number) => Color;
+
+        function intensityCMap(value: number, R, G, B): Color {
+            const intensities = [R(value), G(value), B(value)];
+            return restrictColor(intensities.map(i => Math.floor(255 * i)) as Color);
+        }
+
+
+        // simple red to blue
+        export const RedBlue = (value: number) => {
+            // linearly interpolate between red and blue, [255, 0, 0] to [0, 0, 255]
+            const red = [255, 0, 0] as Color;
+            const blue = [0, 0, 255] as Color;
+
+            const diff = Volume.VecSubV3(blue, red);
+            return restrictColor(Volume.VecAddV(red, Volume.VecMulC(diff, value)));
+        }
+
+        export const Rainbow = value => {
+            // normal intensity functions
+            const R = x => Math.exp(-(((x - 0.2) / 0.45) ** 2));
+            const G = x => Math.exp(-(((x - 0.5) / 0.35) ** 2));
+            const B = x => Math.exp(-(((x - 0.85) / 0.3) ** 2));
+            return intensityCMap(value, R, G, B);
+        }
+    }
+
+
+    export type ScalarFunction = (x: number, y: number) => number;
+    export type ScalarFunctionTimeDependent = (x: number, y: number, t: number) => number;
+
+    interface ScalarFieldOptions {
+        location: Vec2;  // bottom left
+        size: Vec2;
+        xSize: number;  // the amount of pixels in one direction
+        ySize: number;  // the amount of pixels in one direction
     }
 
     // scalar fields
     export class ScalarField extends TDElement {
-        worker: TDWorker;
+        private worker: TDWorker;
+        public readonly options: ScalarFieldOptions = {
+            location: [0, 0],
+            size: [10, 10],
+            xSize: 100,
+            ySize: 100,
+        };
+
+        protected computed: number[][] = null;
+        protected colored: string[][] = null;
+
+        constructor(
+            private sf: ScalarFunctionTimeDependent,
+            private cmap: ColorMap.CMap = ColorMap.Rainbow,
+            options: Partial<ScalarFieldOptions> = {}
+        ) {
+            super();
+
+            this.options = {...this.options, ...options};
+        }
 
         start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
             this.worker = new TDWorker();
@@ -600,16 +676,92 @@ export namespace Fields {
         }
 
         update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            // console.log(this.compute.toString())
-            this.worker.simpleCompute(this.compute, [2, 3])
-                .then(result => {
-                    console.log(result);
-                })
+            const [newComputed, newColored] = this.computeValues(parent.totalTime);
+            this.computed = newComputed;
+            this.colored = newColored;
         }
 
-        // compute
-        compute(arg1: number, arg2: number): number {
-            return arg1 + arg2;
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            if (this.computed == null || this.colored == null)
+                return;
+
+
+            const {location, size, xSize, ySize} = this.options;
+            const dx = size[0] / xSize;
+            const dy = size[1] / ySize;
+
+            for (let y = 0; y < ySize; ++y) {
+                for (let x = 0; x < xSize; ++x) {
+                    const trueX = location[0] + x / xSize * size[0];
+                    // plus one because canvas draws at top left, while tdsim uses bottom left as anchor
+                    const trueY = location[1] + (y + 1) / ySize * size[1];
+
+                    ctx.fillStyle = this.colored[y][x];
+                    ctx.fillRect(
+                        ...parent.localToWorld([trueX, trueY] as Vec2),
+                        parent.localToWorldScalar(dx), parent.localToWorldScalar(dy)
+                    );
+                }
+            }
+        }
+
+        computeValues(time: number): [number[][], string[][]] {
+            const {location, size, xSize, ySize} = this.options;
+
+            let maximum = Number.MIN_VALUE;
+            let minimum = Number.MAX_VALUE;
+
+            let newComputed: number[][] = [];
+            for (let y = 0; y < ySize; ++y) {
+                let xs = [];
+                for (let x = 0; x < xSize; ++x) {
+                    const trueX = location[0] + x / xSize * size[0];
+                    const trueY = location[1] + y / ySize * size[1];
+
+                    const value = this.sf(trueX, trueY, time);
+
+                    if (value > maximum) {
+                        maximum = value;
+                    }
+                    if (value < minimum) {
+                        minimum = value;
+                    }
+                    xs.push(value);
+                }
+                newComputed.push(xs);
+            }
+
+            // normalize and apply colormap
+            const newColored: string[][] = newComputed.map(row => row.map(value => {
+                const normalized = (value - minimum) / (maximum - minimum);
+                return ColorMap.colorToHex(this.cmap(normalized))
+            }));
+
+            return [newComputed, newColored];
+        }
+
+    }
+
+    export class ScalarFieldIndependent extends ScalarField {
+        constructor(
+            sf: ScalarFunction,
+            cmap: ColorMap.CMap = ColorMap.Rainbow,
+            options: Partial<ScalarFieldOptions> = {}
+        ) {
+            super(
+                (x, y, t) => sf(x, y),
+                cmap,
+                options
+            );
+        }
+
+        // only compute once
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            if (this.computed != null && this.colored != null) {
+                return;
+            }
+
+            super.update(parent, ctx, dt);
         }
     }
 }
