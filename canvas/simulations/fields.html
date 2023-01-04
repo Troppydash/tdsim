@@ -30,6 +30,7 @@
     import {Loader} from "tdsim/canvas/loader.js";
     import {TDCanvas} from "tdsim/canvas/canvas.js";
     import {TDDoublePendulum} from "tdsim/sims/objects/simple.js";
+    import {Fields} from "tdsim/sims/objects/physical.js";
 
     function autopause(setPause) {
         let hasFocus = true;
@@ -64,10 +65,12 @@
             autostart: true,
         });
         const controls = await loader.inject(canvas, canvas => {
-            const pendulum = new TDDoublePendulum(
-                0.5, 0.5, [0, 0], [3, 3], 1, 1, 1, 1, 0.25, '#000000'
-            );
-            canvas.addElement(pendulum);
+            const field = new Fields.ScalarField();
+            canvas.addElement(field);
+            // const pendulum = new TDDoublePendulum(
+            //     0.5, 0.5, [0, 0], [3, 3], 1, 1, 1, 1, 0.25, '#000000'
+            // );
+            // canvas.addElement(pendulum);
         });
 
         document.getElementById('pause').addEventListener('click', controls.pause);

@@ -8,6 +8,7 @@ import drawCircle = Primitives.drawCircle;
 import {ContourMethods} from "../algos/contour.js";
 import {PhysicsSolvers} from "../../computation/diffeq.js";
 import {TDElement} from "../../canvas/drawers/basics.js";
+import {TDWorker} from "../../canvas/worker.js";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -589,18 +590,28 @@ export namespace Fields {
 
     }
 
-
-
-
-
-
-
-
-
     // scalar fields
+    export class ScalarField extends TDElement {
+        worker: TDWorker;
 
+        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            this.worker = new TDWorker();
+            this.worker.start();
+        }
 
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            // console.log(this.compute.toString())
+            this.worker.simpleCompute(this.compute, [2, 3])
+                .then(result => {
+                    console.log(result);
+                })
+        }
 
+        // compute
+        compute(arg1: number, arg2: number): number {
+            return arg1 + arg2;
+        }
+    }
 }
 
 
