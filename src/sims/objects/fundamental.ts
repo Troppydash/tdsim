@@ -1,8 +1,8 @@
 import {Vec2, Vec3, VecN, Volume} from "../../computation/vector.js";
 import {DiffEqSolvers, PhysicsSolvers, IDiffEqSolvers} from "../../computation/diffeq.js";
-import {IElement, TDCanvas} from "../../canvas/canvas.js";
+import {ICanvas, IElement, TDCanvas} from "../../canvas/canvas.js";
 import {Bindable, Binding} from "../../canvas/binding.js";
-import {TDElement, TDRawLine} from "../../canvas/drawers/basics.js";
+import {TDElement, TDRawLine, TDText} from "../../canvas/drawers/basics.js";
 
 // backwards compatibility
 export {TDFPSClock} from "../../canvas/drawers/basics.js";
@@ -100,6 +100,26 @@ export class TDTimer extends TDElement {
         ctx.fillText(timeStr, ...parent.pcTodc(this.at));
     }
 }
+
+export class TDReactiveText extends TDText {
+    constructor(
+        private closure: (canvas: ICanvas, setText: (string) => void) => void,
+        location: Vec2,
+        color: string = '#000000',
+        font: string = '1.5rem sans',
+    ) {
+        super('', location, color, font);
+    }
+
+    setText(newText: string): void {
+        this.text = newText;
+    }
+
+    update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        this.closure(parent, this.setText.bind(this));
+    }
+}
+
 
 // Deprecated
 export type MotionEq<T> = (

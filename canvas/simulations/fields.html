@@ -26,11 +26,14 @@
         }
     }
 
+
+
 </script>
 <script type="module">
     import {Loader} from "../../build/tdsim/canvas/loader.js";
     import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
     import {Fields} from "../../build/tdsim/sims/objects/physical.js";
+    import {TDReactiveText} from "../../build/tdsim/sims/objects/fundamental.js";
 
     function autopause(setPause) {
         let hasFocus = true;
@@ -50,7 +53,7 @@
             document.getElementById('canvas'),
             {
                 rate: {
-                    update: 120,
+                    update: 30,
                 },
                 attachments: {
                     axis: true,
@@ -60,7 +63,7 @@
                 region: {
                     right: 0.5,
                     top: 0.5,
-                    scale: 50
+                    scale: 40
                 }
             }
         );
@@ -70,37 +73,101 @@
         });
         const controls = await loader.inject(canvas, canvas => {
             const field = new Fields.ScalarFieldIndependent(
-                (x, y) => Math.sin(2*Math.sqrt((x+4)**2 + y**2)),
+                (x, y) => Math.sin(2 * Math.sqrt((x + 4) ** 2 + (y - 4) ** 2)),
                 undefined,
                 {
-                    location: [-8, -4],
+                    location: [-8, 0],
                     size: [8, 8],
-                    xSize: 80,
-                    ySize: 80
+                    density: [80, 80],
                 }
             );
             canvas.addElement(field);
 
+
             const field2 = new Fields.ScalarField(
-                (x, y, t) => Math.sin(2*Math.sqrt((x-4)**2 + y**2) - 2 *t),
+                (x, y, t) => Math.sin(2 * Math.sqrt((x - 4) ** 2 + (y - 4) ** 2) - 2 * t),
                 undefined,
                 {
-                    location: [0, -4],
+                    location: [0, 0],
                     size: [8, 8],
-                    xSize: 100,
-                    ySize: 100
+                    density: [100, 100],
                 }
             )
             canvas.addElement(field2);
 
-            // const pendulum = new TDDoublePendulum(
-            //     0.8, 0.8, [0, 0], [3, 3], 1, 1, 1, 1, 0.25, '#000000', 0, 0
-            // );
-            // canvas.addElement(pendulum);
+
+            // mandelbrot
+            const maxIter = 40;
+            const speed = 10;
+            const iterTime = t => {
+                return Math.floor(t * speed) % maxIter;
+            }
+
+            function mandelbrot(x, y, t = null) {
+                let iters;
+                if (t == null) {
+                    iters = maxIter;
+                } else {
+                    iters = iterTime(t);
+                }
+
+                // run iteration
+                let z = [0, 0];
+                const c = [x, y];
+
+                for (let i = 0; i < iters; ++i) {
+                    // update z
+                    z = [z[0] ** 2 - z[1] ** 2 + c[0], 2 * z[0] * z[1] + c[1]];
+
+                    // check if z escaped
+                    if (Math.sqrt(z[0] ** 2 + z[1] ** 2) > 2) {
+                        return i;
+                    }
+                }
+
+                return iters;
+            }
+
+            const mandelScalar = new Fields.ScalarFieldIndependent(
+                mandelbrot,
+                undefined,
+                {
+                    location: [-11, -8],
+                    size: [11, 8],
+                    density: [80, 80],
+                    origin: [-4, -4],
+                    scale: [3, 3]
+                }
+            );
+            canvas.addElement(mandelScalar);
+
+            const mandelScalarTime = new Fields.ScalarField(
+                mandelbrot,
+                undefined,
+                {
+                    location: [0, -8],
+                    size: [11, 8],
+                    density: [120, 120],
+                    origin: [7, -4],
+                    scale: [3, 3]
+                }
+            );
+            canvas.addElement(mandelScalarTime);
+
+
+            const floorTime = new TDReactiveText(
+                (canvas, setText) => {
+                    const text = `Iter=${iterTime(canvas.totalTime)}`;
+                    setText(text);
+                },
+                [9, -1],
+                '#ffffff'
+            );
+            canvas.addElement(floorTime, 'time', 2);
         });
 
         document.getElementById('pause').addEventListener('click', controls.pause);
-        // autopause(controls.pause);
+        autopause(controls.pause);
 
     }
 

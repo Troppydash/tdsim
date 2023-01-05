@@ -641,10 +641,11 @@ export namespace Fields {
     export type ScalarFunctionTimeDependent = (x: number, y: number, t: number) => number;
 
     interface ScalarFieldOptions {
-        location: Vec2;  // bottom left
-        size: Vec2;
-        xSize: number;  // the amount of pixels in one direction
-        ySize: number;  // the amount of pixels in one direction
+        location: Vec2;  // bottom left local coordinate
+        size: Vec2;      // width and height of the graph
+        density: Vec2;   // the amount of pixels in one direction
+        scale: Vec2;     // compression ratio on the axis
+        origin: Vec2;    // the local coordinate for the origin of the scalar function
     }
 
     // scalar fields
@@ -653,8 +654,9 @@ export namespace Fields {
         public readonly options: ScalarFieldOptions = {
             location: [0, 0],
             size: [10, 10],
-            xSize: 100,
-            ySize: 100,
+            density: [100, 100],
+            scale: [1, 1],
+            origin: [0, 0]
         };
 
         protected computed: number[][] = null;
@@ -686,7 +688,8 @@ export namespace Fields {
                 return;
 
 
-            const {location, size, xSize, ySize} = this.options;
+            const {location, size, density} = this.options;
+            const [xSize, ySize] = density;
             const dx = size[0] / xSize;
             const dy = size[1] / ySize;
 
@@ -706,7 +709,8 @@ export namespace Fields {
         }
 
         computeValues(time: number): [number[][], string[][]] {
-            const {location, size, xSize, ySize} = this.options;
+            const {location, size, density, origin, scale} = this.options;
+            const [xSize, ySize] = density;
 
             let maximum = Number.MIN_VALUE;
             let minimum = Number.MAX_VALUE;
@@ -715,8 +719,8 @@ export namespace Fields {
             for (let y = 0; y < ySize; ++y) {
                 let xs = [];
                 for (let x = 0; x < xSize; ++x) {
-                    const trueX = location[0] + x / xSize * size[0];
-                    const trueY = location[1] + y / ySize * size[1];
+                    const trueX = (location[0] + x / xSize * size[0] - origin[0]) / scale[0];
+                    const trueY = (location[1] + y / ySize * size[1] - origin[1]) / scale[1];
 
                     const value = this.sf(trueX, trueY, time);
 
@@ -764,6 +768,7 @@ export namespace Fields {
             super.update(parent, ctx, dt);
         }
     }
+
 }
 
 
