@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mandlebrot Simulation</title>
+    <style>
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        body {
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="root">
+
+</canvas>
+
+
+<script type="importmap">
+    {
+        "imports": {
+            "tdsim/": "../../build/tdsim/",
+            "tdsim": "../../build/tdsim/entry.js"
+        }
+    }
+
+</script>
+<script type="module">
+    import {Loader} from "../../build/tdsim/canvas/loader.js";
+    import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
+    import {Fields} from "../../build/tdsim/sims/objects/physical.js";
+    import {TDReactiveText} from "../../build/tdsim/sims/objects/fundamental.js";
+
+    async function main() {
+        // create canvas
+        const canvas = new TDCanvas(
+            document.getElementById('root'),
+            {
+                battery: {
+                    hibernation: true,
+                    newTicks: 500
+                },
+                attachments: {
+                    axis: true,
+                    labels: true,
+                    counter: true
+                },
+                region: {
+                    right: 0.5,
+                    top: 0.5,
+                    scale: 40
+                },
+                size: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                }
+            }
+        );
+
+        const loader = new Loader({
+            autostart: true,
+        });
+        const controls = await loader.inject(canvas, canvas => {
+            // mandelbrot
+            const maxIter = 80;
+
+            function mandelbrot(x, y) {
+                // run iteration
+                let z = [0, 0];
+                const c = [x, y];
+
+                for (let i = 0; i < maxIter; ++i) {
+                    // update z
+                    z = [z[0] ** 2 - z[1] ** 2 + c[0], 2 * z[0] * z[1] + c[1]];
+
+                    // check if z escaped
+                    if (Math.sqrt(z[0] ** 2 + z[1] ** 2) > 10) {
+                        return i;
+                    }
+                }
+
+                return maxIter;
+            }
+
+            const mandelScalar = new Fields.ScalarFieldIndependent(
+                mandelbrot,
+                Fields.ColorMap.DarkBlue,
+                {
+                    location: canvas.anchor(),
+                    size: canvas.drawableArea(),
+                    density: [window.innerWidth, window.innerHeight],
+                    origin: [4, 0],
+                    scale: [12, 12]
+                }
+            );
+            canvas.addElement(mandelScalar);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', main);
+</script>
+
+</body>
+</html>

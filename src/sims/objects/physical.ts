@@ -593,7 +593,7 @@ export namespace Fields {
     // colormaps for fields
     export namespace ColorMap {
         // [red, green, blue]
-        type Color = Vec3;
+        export type Color = Vec3;
 
         /**
          * Clamp and Round the unlimited color value to 0..255
@@ -608,12 +608,17 @@ export namespace Fields {
             return '#' + color.map(c => c.toString(16).padStart(2, '0')).join('');
         }
 
+        export function colorToNumber(color: Color): number {
+            return (color[0] << 16) + (color[1] << 8) + color[2];
+        }
+
+
         // takes a normalized value from 0 to 1 and returns a hex color
         export type CMap = (normVal: number) => Color;
 
         function intensityCMap(value: number, R, G, B): Color {
             const intensities = [R(value), G(value), B(value)];
-            return restrictColor(intensities.map(i => Math.floor(255 * i)) as Color);
+            return restrictColor(intensities.map(i => 255 * i) as Color);
         }
 
 
@@ -634,6 +639,28 @@ export namespace Fields {
             const B = x => Math.exp(-(((x - 0.85) / 0.3) ** 2));
             return intensityCMap(value, R, G, B);
         }
+
+        export const Cool = value => {
+            const R = x => x;
+            const G = x => -x + 1;
+            const B = x => 0;
+            return intensityCMap(value, R, G, B);
+        }
+
+        // https://www.desmos.com/calculator/kztaydrccw
+        export const Turbo = value => {
+            const R = x => 0.3 + 0.7 * Math.sin(10*(x-0.75)) / (10 * (x-0.75));
+            const G = x => Math.exp(-(((x - 0.45) / 0.3) ** 2));
+            const B = x => (Math.exp(-(((x-0.25)/0.15) ** 2)) + 0.25 * Math.exp(-(((x-0.65)/0.25)**2))) / 1.0099;
+            return intensityCMap(value, R, G, B);
+        }
+
+        export const DarkBlue = value => {
+            const R = x => 0;
+            const G = x => x;
+            const B = x => x;
+            return intensityCMap(value, R, G, B);
+        }
     }
 
 
@@ -650,7 +677,7 @@ export namespace Fields {
 
     // scalar fields
     export class ScalarField extends TDElement {
-        private worker: TDWorker;
+        // private worker: TDWorker;
         public readonly options: ScalarFieldOptions = {
             location: [0, 0],
             size: [10, 10],
@@ -659,8 +686,14 @@ export namespace Fields {
             origin: [0, 0]
         };
 
+        // computed function values
         protected computed: number[][] = null;
-        protected colored: string[][] = null;
+
+        // colors array
+        protected colored: Uint8ClampedArray;
+
+        // bitmap image
+        protected bitmap: ImageBitmap = null;
 
         constructor(
             private sf: ScalarFunctionTimeDependent,
@@ -670,45 +703,41 @@ export namespace Fields {
             super();
 
             this.options = {...this.options, ...options};
+
+            const {density} = this.options;
+            this.colored = new Uint8ClampedArray(density[0] * density[1] * 4);  // x4 for RGBA
         }
 
         start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
-            this.worker = new TDWorker();
-            this.worker.start();
+            // this.worker = new TDWorker();
+            // this.worker.start();
         }
 
         update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            const [newComputed, newColored] = this.computeValues(parent.totalTime);
-            this.computed = newComputed;
-            this.colored = newColored;
+            this.computeValues(parent.totalTime);
         }
 
         render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            if (this.computed == null || this.colored == null)
+            if (this.computed == null || this.bitmap == null) {
                 return;
-
-
-            const {location, size, density} = this.options;
-            const [xSize, ySize] = density;
-            const dx = size[0] / xSize;
-            const dy = size[1] / ySize;
-
-            for (let y = 0; y < ySize; ++y) {
-                for (let x = 0; x < xSize; ++x) {
-                    const trueX = location[0] + x / xSize * size[0];
-                    // plus one because canvas draws at top left, while tdsim uses bottom left as anchor
-                    const trueY = location[1] + (y + 1) / ySize * size[1];
-
-                    ctx.fillStyle = this.colored[y][x];
-                    ctx.fillRect(
-                        ...parent.localToWorld([trueX, trueY] as Vec2),
-                        parent.localToWorldScalar(dx), parent.localToWorldScalar(dy)
-                    );
-                }
             }
+
+            // draws the bitmap
+            const {location, size} = this.options;
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(
+                this.bitmap,
+                // position to draw image, adding size[1] as webgl draws anchoring top left while we use bottom left
+                ...parent.localToWorld(Plane.VecAddV(location, [0, size[1]])),
+                // canvas width
+                parent.localToWorldScalar(size[0]),
+                // canvas height
+                parent.localToWorldScalar(size[1]),
+            );
         }
 
-        computeValues(time: number): [number[][], string[][]] {
+
+        private computeValues(time: number) {
             const {location, size, density, origin, scale} = this.options;
             const [xSize, ySize] = density;
 
@@ -719,6 +748,7 @@ export namespace Fields {
             for (let y = 0; y < ySize; ++y) {
                 let xs = [];
                 for (let x = 0; x < xSize; ++x) {
+                    // implement antialiasing
                     const trueX = (location[0] + x / xSize * size[0] - origin[0]) / scale[0];
                     const trueY = (location[1] + y / ySize * size[1] - origin[1]) / scale[1];
 
@@ -736,12 +766,29 @@ export namespace Fields {
             }
 
             // normalize and apply colormap
-            const newColored: string[][] = newComputed.map(row => row.map(value => {
-                const normalized = (value - minimum) / (maximum - minimum);
-                return ColorMap.colorToHex(this.cmap(normalized))
-            }));
+            let i = 0;
+            for (const row of newComputed) {
+                for (const value of row) {
+                    const normalized = (value - minimum) / (maximum - minimum);
+                    const color = this.cmap(normalized);
 
-            return [newComputed, newColored];
+                    this.colored[i] = color[0];
+                    this.colored[i+1] = color[1];
+                    this.colored[i+2] = color[2];
+                    this.colored[i+3] = 255;  // 255 for opaque
+
+                    i += 4;
+                }
+            }
+
+            this.computed = newComputed;
+
+            // allocate bitmap
+            const imageData = new ImageData(this.colored, density[0], density[1]);
+            createImageBitmap(imageData)
+                .then(bitmap => {
+                    this.bitmap = bitmap;
+                });
         }
 
     }

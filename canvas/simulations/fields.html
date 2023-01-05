@@ -12,7 +12,7 @@
     <button id="pause">Pause</button>
 </div>
 <div>
-    <canvas id="canvas" style="border: 1px solid purple">
+    <canvas id="root" style="border: 1px solid purple">
 
     </canvas>
 </div>
@@ -50,10 +50,10 @@
     async function main() {
         // create canvas
         const canvas = new TDCanvas(
-            document.getElementById('canvas'),
+            document.getElementById('root'),
             {
                 rate: {
-                    update: 30,
+                    update: 60,
                 },
                 attachments: {
                     axis: true,
@@ -78,7 +78,7 @@
                 {
                     location: [-8, 0],
                     size: [8, 8],
-                    density: [80, 80],
+                    density: [150, 150],
                 }
             );
             canvas.addElement(field);
@@ -134,7 +134,7 @@
                 {
                     location: [-11, -8],
                     size: [11, 8],
-                    density: [80, 80],
+                    density: [300, 300],
                     origin: [-4, -4],
                     scale: [3, 3]
                 }
@@ -147,7 +147,7 @@
                 {
                     location: [0, -8],
                     size: [11, 8],
-                    density: [120, 120],
+                    density: [100, 100],
                     origin: [7, -4],
                     scale: [3, 3]
                 }
@@ -168,7 +168,6 @@
 
         document.getElementById('pause').addEventListener('click', controls.pause);
         autopause(controls.pause);
-
     }
 
     document.addEventListener('DOMContentLoaded', main);
