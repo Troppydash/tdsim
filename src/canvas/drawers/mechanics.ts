@@ -109,7 +109,7 @@ export namespace Primitives {
         ctx.moveTo(...parent.localToWorld(from));
         ctx.lineTo(...parent.localToWorld(to));
 
-        ctx.fillStyle = color;
+        ctx.strokeStyle = color;
         ctx.lineWidth = lineWidth;
         ctx.stroke();
     }

@@ -12,612 +12,6 @@ import {SubscriberType} from "../../canvas/observable.js";
 const G = 5e-3;
 const Mass = 1e4;
 
-export namespace Mechanics {
-    import EnergeticSystems = DynamicGraphs.EnergeticSystems;
-
-    export class OrbitalMotion extends TDBaseObject implements EnergeticSystems, Traceable {
-        DEFAULT_BINDINGS = {
-            M: Binding.constant(Mass),
-            m: Binding.constant(0.1),
-            G: Binding.constant(G),
-            Mr: Binding.constant(0.25),
-            mr: Binding.constant(0.1),
-        }
-
-        constructor(
-            {
-                Mpos,
-                Mvel,
-                mpos,
-                mvel,
-                bindings,
-            }: {
-                Mpos: Vec2,
-                Mvel: Vec2,
-                mpos: Vec2,
-                mvel: Vec2,
-                bindings
-            }
-        ) {
-            super({
-                pos: [...Mpos, ...mpos],
-                vel: [...Mvel, ...mvel],
-                bindings
-            });
-        }
-
-        static circular(
-            {
-                M,
-                m,
-                bindings
-            }: {
-                M: Vec2,
-                m: Vec2,
-                bindings
-            }
-        ) {
-            const r = VSpace.VecMag(VSpace.VecSubV(M, m));
-            const vel = Math.sqrt(G * Mass / r);
-            return new OrbitalMotion({
-                Mpos: M,
-                Mvel: [0, 0],
-                mpos: m,
-                mvel: [vel, 0],
-                bindings
-            })
-        }
-
-        differential(t: number, p: VecN, v: VecN): VecN {
-
-            const {M, m, G} = this.parameters;
-
-            const Mpos = [p[0], p[1]];
-            const mpos = [p[2], p[3]];
-
-            const r = VSpace.VecMag(VSpace.VecSubV(mpos, Mpos));
-
-            // large mass acceleration,
-            // notice the r * r * r is because vecsubv is not normalized
-            const AM = VSpace.VecMulC(VSpace.VecSubV(mpos, Mpos), G * m / (r * r * r));
-            const Am = VSpace.VecMulC(VSpace.VecSubV(Mpos, mpos), G * M / (r * r * r));
-            return [...AM, ...Am];
-        }
-
-        render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            const {Mr, mr} = this.parameters;
-
-            const Mpos = this.pos.slice(0, 2);
-            const mpos = this.pos.slice(2, 4);
-
-            const radius = VSpace.VecMag(VSpace.VecSubV(Mpos, mpos));
-            // drawHollowCircle(ctx, parent.pcTodc(Mpos) as any, parent.psTods(radius), '#000000');
-
-            Primitives.drawCircle(ctx, parent.pcTodc(Mpos as Vec2) as any, parent.psTods(Mr), '#000000');
-            Primitives.drawCircle(ctx, parent.pcTodc(mpos as Vec2) as any, parent.psTods(mr), '#ff0000');
-        }
-
-        supplyEnergy(percent: number) {
-            const mv = [this.vel[2], this.vel[3]];
-            const energy = 0.5 * this.parameters.m * VSpace.VecMag(mv) ** 2;
-            const newEnergy = energy * (1 + percent);
-            const newVel = VSpace.VecMulC(VSpace.VecNormalize(mv), Math.sqrt(2 * newEnergy / this.parameters.m));
-            this.vel[2] = newVel[0];
-            this.vel[3] = newVel[1];
-        }
-
-        reorbit() {
-            const {M, m, G} = this.parameters;
-
-            const Mpos = this.pos.slice(0, 2);
-            const mpos = this.pos.slice(2, 4);
-            const r = VSpace.VecMag(VSpace.VecSubV(Mpos, mpos));
-            const vel = Math.sqrt(G * Mass / r);
-
-            const mvel = [this.vel[2], this.vel[3]];
-
-            const newVel = VSpace.VecMulC(VSpace.VecNormalize(mvel), vel);
-            this.vel[2] = newVel[0];
-            this.vel[3] = newVel[1];
-        }
-
-        kineticEnergy(): number {
-            const mv = [this.vel[2], this.vel[3]];
-            return 0.5 * this.parameters.m * VSpace.VecMag(mv) ** 2;
-        }
-
-        potentialEnergy(): number {
-            const {M, m, G} = this.parameters;
-            const r = VSpace.VecMag(VSpace.VecSubV(this.pos.slice(2, 4), this.pos.slice(0, 2)));
-            const p = -G * M * m / r;
-            return p;
-        }
-
-        totalEnergy() {
-            return this.kineticEnergy() + this.potentialEnergy();
-        }
-
-        location(): Vec2 {
-            return [
-                this.pos[2], this.pos[3]
-            ];
-        }
-
-    }
-
-    export class Oscillator extends TDBaseObject implements EnergeticSystems {
-        DEFAULT_BINDINGS = {
-            mass: Binding.constant(1),
-            omega: Binding.constant(1),
-            size: Binding.constant(0.25)
-        }
-
-        solver = PhysicsSolvers.Verlet;
-
-        force: (t: number) => Vec2;
-        xe: Vec2;
-        location: Vec2;
-
-        constructor(
-            {
-                location,
-                xe = [0, 0],
-                xi = [0, 0],
-                vi = [0, 0],
-                force = (_) => [0, 0],
-                bindings
-            }: {
-                location: Vec2,
-                xe: Vec2,
-                xi: Vec2,
-                vi: Vec2,
-                force: (t: number) => Vec2
-                bindings
-            }
-        ) {
-            super({
-                pos: xi,
-                vel: vi,
-                bindings,
-            });
-
-            this.location = location;
-            this.xe = xe;
-            this.force = force;
-        }
-
-        differential(t: number, p: VecN, v: VecN): VecN {
-            const {mass, omega} = this.parameters;
-            const pos = this.pos;
-            const F = this.force(t);
-
-            return [
-                (F[0] - omega ** 2 * pos[0]) / mass,
-                (F[1] - omega ** 2 * pos[1]) / mass,
-            ]
-        }
-
-
-        kineticEnergy(): number {
-            const velocity = Math.sqrt(this.vel[0] * this.vel[0] + this.vel[1] * this.vel[1]);
-            return 0.5 * this.parameters.mass * velocity * velocity;
-        }
-
-        potentialEnergy(): number {
-            // using this to graph displacement
-            return Math.sqrt(this.pos[0] ** 2 + this.pos[1] ** 2);
-        }
-
-
-        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            const {size} = this.parameters;
-
-            const location = this.location;
-            const start = Plane.VecAddV(this.xe, location);
-            const end = Plane.VecAddV(this.pos as Vec2, location);
-
-
-            const points = Primitives.ComputeSpring({
-                C: 0.1,
-                W: 5,
-                A: 0.2,
-            }, start, end as Vec2);
-
-            // draw spring
-            Primitives.DrawPoints(parent, ctx, points);
-
-            // draw ball
-            Primitives.DrawCircle(parent, ctx, end, size);
-        }
-    }
-
-
-    export interface ClothOptions {
-        dampening: number;
-        elasticity: number;
-        bodyRadius: number;
-        stringWidth: number;
-        gravity: number;
-        interactive: boolean;
-    }
-
-    /**
-     * A cloth simulation from scratch
-     */
-    export class Cloth extends TDElement {
-        options: ClothOptions = {
-            dampening: 4,
-            elasticity: 300,
-            bodyRadius: 0.07,
-            stringWidth: 3,
-            gravity: 9,
-            interactive: true
-        }
-
-        solver: PhysicsSolvers.Solvers = PhysicsSolvers.Verlet;
-
-        stringEquilibriumLengths: number[] = [];
-        bodyVelocities: Vec2[] = [];
-        connectionLookup: ([number, number][])[] = [];
-
-        // interactive variables
-        handler: number;
-        draggedBody: number = null;  // null if the drag did not find a body
-        wasBodyFixed: boolean = false;
-        startDrag: Vec2 = null;
-
-        constructor(
-            private bodies: Vec2[] = [],
-            private connections: [number, number][] = [],
-            private fixed: number[] = [],
-            options: Partial<ClothOptions> = {}
-        ) {
-            super();
-
-            this.bodyVelocities = Array.from({length: bodies.length}).map(_ => [0, 0]);
-            this.options = {...this.options, ...options};
-        }
-
-
-        /// static constructors ///
-        static chain(
-            points: Vec2[],
-            locks: number[] = [],
-            options: Partial<ClothOptions> = {}
-        ) {
-            let connections = [];
-            for (let i = 0; i < points.length - 1; ++i) {
-                connections.push([i, i + 1]);
-            }
-
-            return new Cloth(
-                points,
-                connections,
-                [0, points.length - 1, ...locks],
-                options
-            );
-        }
-
-
-        /**
-         * Create a curtain shaped cloth with top row of alternating fixed points
-         * @param width
-         * @param height
-         * @param options
-         */
-        static curtain(
-            width: Range,
-            height: Range,
-            options: Partial<ClothOptions> = {}
-        ) {
-            let bodies = [];
-            let connections = [];
-            let fixed = [];
-
-            // first generate the bodies
-            for (const [row, rindex] of height) {
-                for (const [col, cindex] of width) {
-                    const body = [col, row];
-
-                    bodies.push(body);
-
-                    if (rindex == 0 && cindex % 2 == 0) {
-                        // fix the body
-                        fixed.push(bodies.length - 1);
-                    }
-                }
-            }
-
-            // then generate the conditions
-            for (const [row, rindex] of height) {
-                for (const [col, cindex] of width) {
-                    const rightConnection = [rindex * width.size + cindex, rindex * width.size + cindex + 1];
-                    const downConnection = [rindex * width.size + cindex, (rindex + 1) * width.size + cindex];
-
-                    if (rindex !== height.lastIndex) {
-                        connections.push(downConnection);
-                    }
-
-                    if (cindex !== width.lastIndex) {
-                        connections.push(rightConnection);
-                    }
-                }
-            }
-
-            return new Cloth(bodies, connections, fixed, options);
-        }
-
-        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            const {bodyRadius, stringWidth} = this.options;
-
-            // draw circle bodies
-            for (const body of this.bodies) {
-                Primitives.DrawCircle(parent, ctx, body, bodyRadius, '#000000');
-            }
-
-            // draw connections
-            for (const connection of this.connections) {
-                const [fromIndex, toIndex] = connection;
-                const from = this.bodies[fromIndex];
-                const to = this.bodies[toIndex];
-
-                Primitives.DrawLine(parent, ctx, from, to, stringWidth, '#000000');
-            }
-        }
-
-        handleFocus(newValue: Vec2 | null, oldValue: Vec2 | null) {
-            if (oldValue == null && newValue != null) {
-                // when starting click
-
-                // this is for cutting
-                this.startDrag = newValue;
-
-
-                // select the body
-                const body = this.bodies.findIndex((a) => {
-                    return Plane.VecDist(newValue, a) < this.options.bodyRadius * 2;
-                });
-                if (body == -1) {
-                    return;
-                }
-
-                // cache the fixed state of the body & set the body to be fixed when dragging
-                this.wasBodyFixed = this.fixed.includes(body);
-                if (!this.wasBodyFixed) {
-                    this.fixed.push(body);
-                }
-
-                this.draggedBody = body;
-                return;
-            }
-
-            if (oldValue != null && newValue != null) {
-                if (this.draggedBody == null)
-                    return;
-
-                // when dragging
-                // update the position of this.body
-                this.bodies[this.draggedBody] = newValue;
-            }
-
-            if (newValue == null && oldValue != null) {
-                // reset startDrag
-                const startDrag = this.startDrag;
-                this.startDrag = null;
-
-                if (this.draggedBody == null) {
-                    // cut strings if find any
-                    // do a copy of the connections array because the for loop modifies it
-                    const newConnections = [];
-                    for (const [index, connection] of [...this.connections].entries()) {
-                        const [b1, b2] = connection;
-                        const body1 = this.bodies[b1];
-                        const body2 = this.bodies[b2];
-
-                        if (!Plane.Intersect(startDrag, oldValue, body1, body2)) {
-                            newConnections.push(connection);
-                        }
-                        this.connections = newConnections;
-                    }
-
-                    // recompute cache
-                    this.cacheConnections();
-
-                    return;
-                }
-
-                // when stopped dragging
-                // remove its fixed attribute if it did not have one
-                if (!this.wasBodyFixed) {
-                    this.fixed = this.fixed.filter(body => body !== this.draggedBody);
-                }
-                this.draggedBody = null;
-            }
-        }
-
-        /**
-         * Computes the stringEquilibriumLengths array and the connectionLookup dictionary
-         * @private
-         */
-        private cacheConnections() {
-            // first compute the equilibrium length of the strings
-            let stringEquilibriumLengths = [];
-            for (const connection of this.connections) {
-                const p1 = this.bodies[connection[0]];
-                const p2 = this.bodies[connection[1]];
-
-                stringEquilibriumLengths.push(Plane.VecDist(p1, p2));
-            }
-
-            this.stringEquilibriumLengths = stringEquilibriumLengths;
-
-            // then cache the connection lookups
-            let connectionLookup = [];
-            for (let i = 0; i < this.bodies.length; ++i) {
-                const lookup = [];
-                for (let j = 0; j < this.connections.length; ++j) {
-                    const [p1, p2] = this.connections[j];
-                    if (p1 === i) {
-                        lookup.push([p2, j]);
-                    }
-                    if (p2 === i) {
-                        lookup.push([p1, j]);
-                    }
-                }
-                connectionLookup.push(lookup);
-            }
-            this.connectionLookup = connectionLookup;
-        }
-
-        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
-            this.cacheConnections();
-
-            // handle the interactivity
-            if (this.options.interactive) {
-                this.handler = parent.inputs.drag.subscribe(this.handleFocus.bind(this), SubscriberType.POST_UPDATE);
-            }
-        }
-
-        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            const {elasticity, gravity, dampening} = this.options;
-
-            // randomize order to improve stability
-            // https://stackoverflow.com/a/46545530/9341734
-            const order = this.bodies
-                .map((_, i) => ({i, sort: Math.random()}))
-                .sort((a, b) => a.sort - b.sort)
-                .map(({i}) => i);
-
-
-            // calculate all the forces on none fixed points
-            for (const i of order) {
-                const body = this.bodies[i];
-
-                // skip if the body is fixed
-                if (this.fixed.includes(i)) {
-                    continue;
-                }
-
-                // compute the force vector from all the connections to this node
-                let totalForce = [0, 0] as Vec2;
-
-                // add gravity
-                totalForce = Plane.VecAddV(totalForce, [0, -gravity]);
-
-                // all the connections
-                let stringForce = [0, 0] as Vec2;
-                const connections = this.connectionLookup[i];
-                for (const [otherIndex, connectionIndex] of connections) {
-                    const other = this.bodies[otherIndex];
-
-                    // hooke's law, F = -k(x-x0)
-                    const x0 = this.stringEquilibriumLengths[connectionIndex];
-                    const x = Plane.VecSubV(body, other);
-                    const length = Plane.VecMag(x);
-                    const force = Plane.VecMulC(x, -elasticity * (length - x0) / length);
-                    stringForce = Plane.VecAddV(stringForce, force);
-                }
-
-
-                // and damping to string forces, only when it is connected
-                const vel = this.bodyVelocities[i];
-                if (connections.length > 0) {
-                    stringForce = Plane.VecAddV(
-                        stringForce,
-                        Plane.VecMulC(vel, -dampening)
-                    );
-                }
-
-                totalForce = Plane.VecAddV(totalForce, stringForce);
-
-                // apply force, verlet algorithm
-                // https://en.wikipedia.org/wiki/Verlet_integration
-                const halfVel = Plane.VecAddV(vel, Plane.VecMulC(totalForce, dt / 2));
-                const newPos = Plane.VecAddV(
-                    body,
-                    Plane.VecMulC(halfVel, dt)
-                );
-                const newVel = Plane.VecAddV(
-                    halfVel,
-                    Plane.VecMulC(totalForce, dt / 2)
-                );
-
-                this.bodies[i] = newPos;
-                this.bodyVelocities[i] = newVel;
-            }
-        }
-
-        stop(parent: ICanvas, ctx: CanvasRenderingContext2D) {
-            if (this.options.interactive) {
-                parent.inputs.drag.unsubscribe(this.handler);
-            }
-        }
-    }
-}
-
-export namespace Electricity {
-
-    import HasPotential = Fields.HasPotential;
-    import HasStrength = Fields.HasStrength;
-
-    /**
-     *  A singular charge
-     */
-    export class Charge extends TDBaseObject implements HasPotential, HasStrength {
-        DEFAULT_BINDINGS = {
-            k: Binding.constant(1),
-            charge: Binding.constant(1),
-            radius: Binding.constant(0.15)
-        }
-
-        constructor(
-            {
-                p0,
-                v0,
-                bindings
-            }: {
-                p0: Vec2,
-                v0: Vec2,
-                bindings
-            }
-        ) {
-            super({
-                pos: p0,
-                vel: v0,
-                bindings
-            });
-        }
-
-
-        render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            const {pos} = this;
-            const {radius} = this.parameters;
-
-            Primitives.drawCircle(ctx, parent.pcTodc(pos as Vec2) as Vec2, parent.psTods(radius), '#000');
-        }
-
-        differential(t: number, p: VecN, v: VecN): VecN {
-            return [0, 0];
-        }
-
-        potential(pos: Vec2): number {
-            const {k, charge} = this.parameters;
-            const distance = Math.sqrt((this.pos[0] - pos[0]) ** 2 + (this.pos[1] - pos[1]) ** 2);
-            return k * charge / distance;
-        }
-
-        charge(): number {
-            return this.parameters.charge > 0 ? 1 : -1;
-        }
-
-        strength(pos: Vec2): Vec2 {
-            const {k, charge} = this.parameters;
-            const r = Plane.VecSubV(pos, this.pos as Vec2);
-            return Plane.VecMulC(r, k * charge / Plane.VecMag(r) ** 3);
-        }
-    }
-}
-
 export namespace Fields {
     import Method = ContourMethods.Method;
 
@@ -938,6 +332,10 @@ export namespace Fields {
         // takes a normalized value from 0 to 1 and returns a hex color
         export type CMap = (normVal: number) => Color;
 
+        export function CMapInverse(cmap: CMap): CMap {
+            return value => cmap(1-value);
+        }
+
         function intensityCMap(value: number, R, G, B): Color {
             const intensities = [R(value), G(value), B(value)];
             return restrictColor(intensities.map(i => 255 * i) as Color);
@@ -1139,3 +537,657 @@ export namespace Fields {
     }
 
 }
+
+export namespace Mechanics {
+    import EnergeticSystems = DynamicGraphs.EnergeticSystems;
+    import ColorMap = Fields.ColorMap;
+
+    export class OrbitalMotion extends TDBaseObject implements EnergeticSystems, Traceable {
+        DEFAULT_BINDINGS = {
+            M: Binding.constant(Mass),
+            m: Binding.constant(0.1),
+            G: Binding.constant(G),
+            Mr: Binding.constant(0.25),
+            mr: Binding.constant(0.1),
+        }
+
+        constructor(
+            {
+                Mpos,
+                Mvel,
+                mpos,
+                mvel,
+                bindings,
+            }: {
+                Mpos: Vec2,
+                Mvel: Vec2,
+                mpos: Vec2,
+                mvel: Vec2,
+                bindings
+            }
+        ) {
+            super({
+                pos: [...Mpos, ...mpos],
+                vel: [...Mvel, ...mvel],
+                bindings
+            });
+        }
+
+        static circular(
+            {
+                M,
+                m,
+                bindings
+            }: {
+                M: Vec2,
+                m: Vec2,
+                bindings
+            }
+        ) {
+            const r = VSpace.VecMag(VSpace.VecSubV(M, m));
+            const vel = Math.sqrt(G * Mass / r);
+            return new OrbitalMotion({
+                Mpos: M,
+                Mvel: [0, 0],
+                mpos: m,
+                mvel: [vel, 0],
+                bindings
+            })
+        }
+
+        differential(t: number, p: VecN, v: VecN): VecN {
+
+            const {M, m, G} = this.parameters;
+
+            const Mpos = [p[0], p[1]];
+            const mpos = [p[2], p[3]];
+
+            const r = VSpace.VecMag(VSpace.VecSubV(mpos, Mpos));
+
+            // large mass acceleration,
+            // notice the r * r * r is because vecsubv is not normalized
+            const AM = VSpace.VecMulC(VSpace.VecSubV(mpos, Mpos), G * m / (r * r * r));
+            const Am = VSpace.VecMulC(VSpace.VecSubV(Mpos, mpos), G * M / (r * r * r));
+            return [...AM, ...Am];
+        }
+
+        render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {Mr, mr} = this.parameters;
+
+            const Mpos = this.pos.slice(0, 2);
+            const mpos = this.pos.slice(2, 4);
+
+            const radius = VSpace.VecMag(VSpace.VecSubV(Mpos, mpos));
+            // drawHollowCircle(ctx, parent.pcTodc(Mpos) as any, parent.psTods(radius), '#000000');
+
+            Primitives.drawCircle(ctx, parent.pcTodc(Mpos as Vec2) as any, parent.psTods(Mr), '#000000');
+            Primitives.drawCircle(ctx, parent.pcTodc(mpos as Vec2) as any, parent.psTods(mr), '#ff0000');
+        }
+
+        supplyEnergy(percent: number) {
+            const mv = [this.vel[2], this.vel[3]];
+            const energy = 0.5 * this.parameters.m * VSpace.VecMag(mv) ** 2;
+            const newEnergy = energy * (1 + percent);
+            const newVel = VSpace.VecMulC(VSpace.VecNormalize(mv), Math.sqrt(2 * newEnergy / this.parameters.m));
+            this.vel[2] = newVel[0];
+            this.vel[3] = newVel[1];
+        }
+
+        reorbit() {
+            const {M, m, G} = this.parameters;
+
+            const Mpos = this.pos.slice(0, 2);
+            const mpos = this.pos.slice(2, 4);
+            const r = VSpace.VecMag(VSpace.VecSubV(Mpos, mpos));
+            const vel = Math.sqrt(G * Mass / r);
+
+            const mvel = [this.vel[2], this.vel[3]];
+
+            const newVel = VSpace.VecMulC(VSpace.VecNormalize(mvel), vel);
+            this.vel[2] = newVel[0];
+            this.vel[3] = newVel[1];
+        }
+
+        kineticEnergy(): number {
+            const mv = [this.vel[2], this.vel[3]];
+            return 0.5 * this.parameters.m * VSpace.VecMag(mv) ** 2;
+        }
+
+        potentialEnergy(): number {
+            const {M, m, G} = this.parameters;
+            const r = VSpace.VecMag(VSpace.VecSubV(this.pos.slice(2, 4), this.pos.slice(0, 2)));
+            const p = -G * M * m / r;
+            return p;
+        }
+
+        totalEnergy() {
+            return this.kineticEnergy() + this.potentialEnergy();
+        }
+
+        location(): Vec2 {
+            return [
+                this.pos[2], this.pos[3]
+            ];
+        }
+
+    }
+
+    export class Oscillator extends TDBaseObject implements EnergeticSystems {
+        DEFAULT_BINDINGS = {
+            mass: Binding.constant(1),
+            omega: Binding.constant(1),
+            size: Binding.constant(0.25)
+        }
+
+        solver = PhysicsSolvers.Verlet;
+
+        force: (t: number) => Vec2;
+        xe: Vec2;
+        location: Vec2;
+
+        constructor(
+            {
+                location,
+                xe = [0, 0],
+                xi = [0, 0],
+                vi = [0, 0],
+                force = (_) => [0, 0],
+                bindings
+            }: {
+                location: Vec2,
+                xe: Vec2,
+                xi: Vec2,
+                vi: Vec2,
+                force: (t: number) => Vec2
+                bindings
+            }
+        ) {
+            super({
+                pos: xi,
+                vel: vi,
+                bindings,
+            });
+
+            this.location = location;
+            this.xe = xe;
+            this.force = force;
+        }
+
+        differential(t: number, p: VecN, v: VecN): VecN {
+            const {mass, omega} = this.parameters;
+            const pos = this.pos;
+            const F = this.force(t);
+
+            return [
+                (F[0] - omega ** 2 * pos[0]) / mass,
+                (F[1] - omega ** 2 * pos[1]) / mass,
+            ]
+        }
+
+
+        kineticEnergy(): number {
+            const velocity = Math.sqrt(this.vel[0] * this.vel[0] + this.vel[1] * this.vel[1]);
+            return 0.5 * this.parameters.mass * velocity * velocity;
+        }
+
+        potentialEnergy(): number {
+            // using this to graph displacement
+            return Math.sqrt(this.pos[0] ** 2 + this.pos[1] ** 2);
+        }
+
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {size} = this.parameters;
+
+            const location = this.location;
+            const start = Plane.VecAddV(this.xe, location);
+            const end = Plane.VecAddV(this.pos as Vec2, location);
+
+
+            const points = Primitives.ComputeSpring({
+                C: 0.1,
+                W: 5,
+                A: 0.2,
+            }, start, end as Vec2);
+
+            // draw spring
+            Primitives.DrawPoints(parent, ctx, points);
+
+            // draw ball
+            Primitives.DrawCircle(parent, ctx, end, size);
+        }
+    }
+
+
+    export interface ClothOptions {
+        dampening: number;
+        elasticity: number;
+        bodyRadius: number;
+        stringWidth: number;
+        gravity: number;
+        interactive: boolean;
+        stress: boolean;
+    }
+
+    /**
+     * A cloth simulation from scratch
+     */
+    export class Cloth extends TDElement {
+        options: ClothOptions = {
+            dampening: 4,
+            elasticity: 300,
+            bodyRadius: 0.07,
+            stringWidth: 3,
+            gravity: 9,
+            interactive: true,
+            stress: true,
+        }
+
+        cmap: ColorMap.CMap = ColorMap.CMapInverse(ColorMap.Rainbow);
+
+        stringEquilibriumLengths: number[] = [];
+        bodyVelocities: Vec2[] = [];
+        connectionLookup: ([number, number][])[] = [];
+
+        // interactive variables
+        focusHandler: number;
+        clickHandler: number;
+        draggedBody: number = null;  // null if the drag did not find a body
+        wasBodyFixed: boolean = false;
+        startDrag: Vec2 = null;
+
+        constructor(
+            private bodies: Vec2[] = [],
+            private connections: [number, number][] = [],
+            private fixed: number[] = [],
+            options: Partial<ClothOptions> = {}
+        ) {
+            super();
+
+            this.bodyVelocities = Array.from({length: bodies.length}).map(_ => [0, 0]);
+            this.options = {...this.options, ...options};
+        }
+
+
+        /// static constructors ///
+        static chain(
+            points: Vec2[],
+            locks: number[] = [],
+            options: Partial<ClothOptions> = {}
+        ) {
+            let connections = [];
+            for (let i = 0; i < points.length - 1; ++i) {
+                connections.push([i, i + 1]);
+            }
+
+            return new Cloth(
+                points,
+                connections,
+                [0, points.length - 1, ...locks],
+                options
+            );
+        }
+
+
+        /**
+         * Create a curtain shaped cloth with top row of alternating fixed points
+         * @param width
+         * @param height
+         * @param options
+         */
+        static curtain(
+            width: Range,
+            height: Range,
+            options: Partial<ClothOptions> = {}
+        ) {
+            let bodies = [];
+            let connections = [];
+            let fixed = [];
+
+            // first generate the bodies
+            for (const [row, rindex] of height) {
+                for (const [col, cindex] of width) {
+                    const body = [col, row];
+
+                    bodies.push(body);
+
+                    if (rindex == 0 && cindex % 2 == 0) {
+                        // fix the body
+                        fixed.push(bodies.length - 1);
+                    }
+                }
+            }
+
+            // then generate the conditions
+            for (const [row, rindex] of height) {
+                for (const [col, cindex] of width) {
+                    const rightConnection = [rindex * width.size + cindex, rindex * width.size + cindex + 1];
+                    const downConnection = [rindex * width.size + cindex, (rindex + 1) * width.size + cindex];
+
+                    if (rindex !== height.lastIndex) {
+                        connections.push(downConnection);
+                    }
+
+                    if (cindex !== width.lastIndex) {
+                        connections.push(rightConnection);
+                    }
+                }
+            }
+
+            return new Cloth(bodies, connections, fixed, options);
+        }
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {bodyRadius, stringWidth, stress} = this.options;
+
+            // draw circle bodies
+            for (const body of this.bodies) {
+                Primitives.DrawCircle(parent, ctx, body, bodyRadius, '#000000');
+            }
+
+            // find max stretch
+            let maxStretch = -1;
+            if (stress) {
+                for (const [index, connection] of this.connections.entries()) {
+                    const [fromIndex, toIndex] = connection;
+                    const from = this.bodies[fromIndex];
+                    const to = this.bodies[toIndex];
+
+                    const stretch = Math.abs(Plane.VecDist(from, to) - this.stringEquilibriumLengths[index]);
+                    maxStretch = Math.max(maxStretch, stretch);
+                }
+            }
+
+            // draw connections
+            for (const [index, connection] of this.connections.entries()) {
+                const [fromIndex, toIndex] = connection;
+                const from = this.bodies[fromIndex];
+                const to = this.bodies[toIndex];
+
+                let color = '#000000';
+                if (stress) {
+                    const stretch = Math.abs(Plane.VecDist(from, to) - this.stringEquilibriumLengths[index]);
+                    const stretchNormalized = Math.min(maxStretch, stretch) / maxStretch;
+                    color = ColorMap.colorToHex( this.cmap(stretchNormalized));
+                }
+
+                Primitives.DrawLine(parent, ctx, from, to, stringWidth, color);
+            }
+        }
+
+        private handleFocus(newValue: Vec2 | null, oldValue: Vec2 | null) {
+            if (oldValue == null && newValue != null) {
+                // when starting click
+
+                // this is for cutting
+                this.startDrag = newValue;
+
+
+                // select the body
+                const body = this.bodies.findIndex((a) => {
+                    return Plane.VecDist(newValue, a) < this.options.bodyRadius * 2;
+                });
+                if (body == -1) {
+                    return;
+                }
+
+                // cache the fixed state of the body & set the body to be fixed when dragging
+                this.wasBodyFixed = this.fixed.includes(body);
+                if (!this.wasBodyFixed) {
+                    this.fixed.push(body);
+                }
+
+                this.draggedBody = body;
+                return;
+            }
+
+            if (oldValue != null && newValue != null) {
+                if (this.draggedBody == null)
+                    return;
+
+                // when dragging
+                // update the position of this.body
+                this.bodies[this.draggedBody] = newValue;
+            }
+
+            if (newValue == null && oldValue != null) {
+                // reset startDrag
+                const startDrag = this.startDrag;
+                this.startDrag = null;
+
+                if (this.draggedBody == null) {
+                    // cut strings if find any
+
+                    const newStringLength = [];
+                    const newConnections = [];
+                    for (const [index, connection] of [...this.connections].entries()) {
+                        const [b1, b2] = connection;
+                        const body1 = this.bodies[b1];
+                        const body2 = this.bodies[b2];
+
+                        if (!Plane.Intersect(startDrag, oldValue, body1, body2)) {
+                            newConnections.push(connection);
+                            newStringLength.push(this.stringEquilibriumLengths[index]);
+                        }
+                    }
+
+                    this.connections = newConnections;
+                    this.stringEquilibriumLengths = newStringLength;
+
+                    // recompute cache
+                    this.cacheConnections();
+
+                    return;
+                }
+
+                // when stopped dragging
+                // remove its fixed attribute if it did not have one
+                if (!this.wasBodyFixed) {
+                    this.fixed = this.fixed.filter(body => body !== this.draggedBody);
+                }
+                this.draggedBody = null;
+            }
+        }
+
+        private handleClick(newValue: Vec2 | null, oldValue: Vec2 | null) {
+            // select body
+            const body = this.bodies.findIndex((a) => {
+                return Plane.VecDist(newValue, a) < this.options.bodyRadius * 2;
+            });
+            if (body == -1) {
+                return;
+            }
+
+            // toggle the fix on the body
+            if (this.fixed.includes(body)) {
+                this.fixed = this.fixed.filter(b => b !== body);
+            } else {
+                this.fixed.push(body);
+            }
+        }
+
+        /**
+         * Computes array and the connectionLookup dictionary
+         * @private
+         */
+        private cacheConnections() {
+            // then cache the connection lookups
+            let connectionLookup = [];
+            for (let i = 0; i < this.bodies.length; ++i) {
+                const lookup = [];
+                for (let j = 0; j < this.connections.length; ++j) {
+                    const [p1, p2] = this.connections[j];
+                    if (p1 === i) {
+                        lookup.push([p2, j]);
+                    }
+                    if (p2 === i) {
+                        lookup.push([p1, j]);
+                    }
+                }
+                connectionLookup.push(lookup);
+            }
+            this.connectionLookup = connectionLookup;
+        }
+
+        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            // first compute the equilibrium length of the strings
+            let stringEquilibriumLengths = [];
+            for (const connection of this.connections) {
+                const p1 = this.bodies[connection[0]];
+                const p2 = this.bodies[connection[1]];
+
+                stringEquilibriumLengths.push(Plane.VecDist(p1, p2));
+            }
+
+            this.stringEquilibriumLengths = stringEquilibriumLengths;
+
+            this.cacheConnections();
+
+            // handle the interactivity
+            if (this.options.interactive) {
+                this.focusHandler = parent.inputs.drag.subscribe(this.handleFocus.bind(this), SubscriberType.POST_UPDATE);
+                this.clickHandler = parent.inputs.click.subscribe(this.handleClick.bind(this), SubscriberType.POST_UPDATE);
+            }
+        }
+
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {elasticity, gravity, dampening} = this.options;
+
+            // randomize order to improve stability
+            // https://stackoverflow.com/a/46545530/9341734
+            const order = this.bodies
+                .map((_, i) => ({i, sort: Math.random()}))
+                .sort((a, b) => a.sort - b.sort)
+                .map(({i}) => i);
+
+
+            // calculate all the forces on none fixed points
+            for (const i of order) {
+                const body = this.bodies[i];
+
+                // skip if the body is fixed
+                if (this.fixed.includes(i)) {
+                    continue;
+                }
+
+                // compute the force vector from all the connections to this node
+                let totalForce = [0, 0] as Vec2;
+
+                // add gravity
+                totalForce = Plane.VecAddV(totalForce, [0, -gravity]);
+
+                // all the connections
+                let stringForce = [0, 0] as Vec2;
+                const connections = this.connectionLookup[i];
+                for (const [otherIndex, connectionIndex] of connections) {
+                    const other = this.bodies[otherIndex];
+
+                    // hooke's law, F = -k(x-x0)
+                    const x0 = this.stringEquilibriumLengths[connectionIndex];
+                    const x = Plane.VecSubV(body, other);
+                    const length = Plane.VecMag(x);
+                    const force = Plane.VecMulC(x, -elasticity * (length - x0) / length);
+                    stringForce = Plane.VecAddV(stringForce, force);
+                }
+
+
+                // and damping to string forces, only when it is connected
+                const vel = this.bodyVelocities[i];
+                if (connections.length > 0) {
+                    stringForce = Plane.VecAddV(
+                        stringForce,
+                        Plane.VecMulC(vel, -dampening)
+                    );
+                }
+
+                totalForce = Plane.VecAddV(totalForce, stringForce);
+
+                // apply force, verlet algorithm
+                // https://en.wikipedia.org/wiki/Verlet_integration
+                const halfVel = Plane.VecAddV(vel, Plane.VecMulC(totalForce, dt / 2));
+                const newPos = Plane.VecAddV(
+                    body,
+                    Plane.VecMulC(halfVel, dt)
+                );
+                const newVel = Plane.VecAddV(
+                    halfVel,
+                    Plane.VecMulC(totalForce, dt / 2)
+                );
+
+                this.bodies[i] = newPos;
+                this.bodyVelocities[i] = newVel;
+            }
+        }
+
+        stop(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            if (this.options.interactive) {
+                parent.inputs.drag.unsubscribe(this.focusHandler);
+                parent.inputs.click.unsubscribe(this.clickHandler);
+            }
+        }
+    }
+}
+
+export namespace Electricity {
+
+    import HasPotential = Fields.HasPotential;
+    import HasStrength = Fields.HasStrength;
+
+    /**
+     *  A singular charge
+     */
+    export class Charge extends TDBaseObject implements HasPotential, HasStrength {
+        DEFAULT_BINDINGS = {
+            k: Binding.constant(1),
+            charge: Binding.constant(1),
+            radius: Binding.constant(0.15)
+        }
+
+        constructor(
+            {
+                p0,
+                v0,
+                bindings
+            }: {
+                p0: Vec2,
+                v0: Vec2,
+                bindings
+            }
+        ) {
+            super({
+                pos: p0,
+                vel: v0,
+                bindings
+            });
+        }
+
+
+        render(parent: TDCanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {pos} = this;
+            const {radius} = this.parameters;
+
+            Primitives.drawCircle(ctx, parent.pcTodc(pos as Vec2) as Vec2, parent.psTods(radius), '#000');
+        }
+
+        differential(t: number, p: VecN, v: VecN): VecN {
+            return [0, 0];
+        }
+
+        potential(pos: Vec2): number {
+            const {k, charge} = this.parameters;
+            const distance = Math.sqrt((this.pos[0] - pos[0]) ** 2 + (this.pos[1] - pos[1]) ** 2);
+            return k * charge / distance;
+        }
+
+        charge(): number {
+            return this.parameters.charge > 0 ? 1 : -1;
+        }
+
+        strength(pos: Vec2): Vec2 {
+            const {k, charge} = this.parameters;
+            const r = Plane.VecSubV(pos, this.pos as Vec2);
+            return Plane.VecMulC(r, k * charge / Plane.VecMag(r) ** 3);
+        }
+    }
+}
+
