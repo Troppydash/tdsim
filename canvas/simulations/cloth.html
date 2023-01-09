@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Cloth Simulation</title>
+    <style>
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            display: block;
+        }
+
+        html, body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="root"></canvas>
+
+<script type="module">
+    import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
+    import {Loader} from "../../build/tdsim/canvas/loader.js";
+    import {Mechanics} from "../../build/tdsim/sims/objects/physical.js";
+    import {Range} from "../../build/tdsim/computation/vector.js";
+
+    async function main() {
+        // create canvas
+        const canvas = new TDCanvas(
+            document.getElementById('root'),
+            {
+                rate: {
+                    update: 240,
+                },
+                attachments: {
+                    axis: true,
+                    counter: true,
+                    labels: true
+                },
+                region: {
+                    right: 0.8,
+                    top: 0.8,
+                    scale: 100
+                },
+                size: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                }
+            }
+        );
+
+        // start rendering
+        const loader = new Loader();
+        const controls = await loader.inject(canvas, cvs => {
+
+            // const chain = Mechanics.Cloth.chain(
+            //     Array.from({length: 60}).map((_, i) => [0.1 * i, 4]),
+            //     [20, 30],
+            //     {
+            //         dampening: 6,
+            //         bodyRadius: 0,
+            //         elasticity: 600
+            //     }
+            // );
+            // cvs.addElement(chain);
+
+            const chain = Mechanics.Cloth.curtain(
+                [0, 4],
+                Range.linspace(0, 12, 31),
+                Range.linspace(4, 0, 10),
+                {
+                    dampening: 7,
+                    bodyRadius: 0.05,
+                    elasticity: 600
+                }
+            );
+            cvs.addElement(chain);
+        });
+
+    }
+
+    window.addEventListener('DOMContentLoaded', main);
+</script>
+</body>
+</html>

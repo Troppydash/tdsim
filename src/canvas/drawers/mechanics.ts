@@ -96,4 +96,21 @@ export namespace Primitives {
         ctx.fillStyle = color;
         ctx.fill();
     }
+
+    export function DrawLine(
+        parent: ICanvas,
+        ctx: CanvasRenderingContext2D,
+        from: Vec2,
+        to: Vec2,
+        lineWidth: number,
+        color: string
+    ) {
+        ctx.beginPath();
+        ctx.moveTo(...parent.localToWorld(from));
+        ctx.lineTo(...parent.localToWorld(to));
+
+        ctx.fillStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+    }
 }

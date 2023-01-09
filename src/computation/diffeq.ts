@@ -72,10 +72,16 @@ export namespace PhysicsSolvers {
         v: VecN,
     ) => VecN;
 
-    // A solver for differential equations
+    /**
+     * A solver for differential equations
+     *
+     * @example
+     * let solver;
+     * const [newPos, newVel] = solver(d/dt d/dt x, p, v, t, dt);
+     */
     export type Solvers = (diffeq: DiffEq, p: VecN, v: VecN, t: number, dt: number) => [VecN, VecN];
 
-    
+
     export function RK4(diffeq: DiffEq, p: VecN, v: VecN, t: number, dt: number): [VecN, VecN] {
         // common namespace
         const Space = VSpace;

@@ -398,7 +398,7 @@ export namespace DynamicGraphs {
                 type = 'real',
 
                 diffEq,
-                range = new Range(0, 10),
+                range = Range.of(0, 10),
                 points,
                 magnitude = 5
             }: {
@@ -468,7 +468,7 @@ export namespace DynamicGraphs {
                 location,
                 size,
                 bindings = {},
-                range = new Range(0, 10),
+                range = Range.of(0, 10),
                 points,
                 bfield = null,
                 dt = 1 / 120

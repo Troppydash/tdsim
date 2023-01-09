@@ -92,8 +92,8 @@ export namespace Plane {
         return VecMag(VecSubV(b, a));
     }
 
-// intersection code, i have no idea how it works
-// https://stackoverflow.com/questions/9043805/test-if-two-lines-intersect-javascript-function
+    // intersection code, i have no idea how it works
+    // https://stackoverflow.com/questions/9043805/test-if-two-lines-intersect-javascript-function
     export function Intersect(from1: Vec2, to1: Vec2, from2: Vec2, to2: Vec2): Vec2 | null {
         const dX = to1[0] - from1[0];
         const dY = to1[1] - from1[1];
@@ -269,7 +269,7 @@ export namespace Complex {
         return Math.atan2(c[1], c[0]);
     }
 
-    export function FromRect(x: number, y: number=0): Complex {
+    export function FromRect(x: number, y: number = 0): Complex {
         return [x, y];
     }
 
@@ -298,12 +298,12 @@ export namespace Complex {
 
     // https://stackoverflow.com/a/72906124/9341734
     function round_number(number, decimal_places) {
-        const places = 10**decimal_places;
-        const res = Math.round(number * places)/places;
-        return(res)
+        const places = 10 ** decimal_places;
+        const res = Math.round(number * places) / places;
+        return (res)
     }
 
-    export function ToString(c: Complex, prec: number=2): string {
+    export function ToString(c: Complex, prec: number = 2): string {
         if (Math.abs(c[1]) < Math.pow(10, -prec)) {
             return `(${round_number(c[0], prec)})`;
         }
@@ -321,33 +321,69 @@ export class Range {
     private _values: number[];
     private _keys: number[];
 
-    public constructor(
-        public lower: number,
-        public upper: number,
-        public step: number = 1
+
+    private constructor(
+        range: number[],
     ) {
-        this._size = Math.floor((this.upper - this.lower) / this.step) + 1;
+        this._size = range.length;
 
         // generate iter
         this._iter = [];
         this._keys = [];
         this._values = [];
-        for (let i = 0, x = this.lower; i < this.size; ++i) {
+        for (let i = 0; i < range.length; ++i) {
+            const x = range[i];
             this._iter.push([x, i]);
             this._values.push(x);
             this._keys.push(i);
-            x += this.step;
         }
     }
 
-    static of(upper: number, step: number = 1): Range {
-        return new Range(0, upper-1, 1);
+    /**
+     * Create a range from 0 to the upper number, stepping
+     *
+     * @example
+     * const range = Range.of(10, 1);
+     *
+     * @param lower
+     * @param upper
+     * @param step
+     */
+    static of(lower: number, upper: number, step: number = 1): Range {
+        let range = [];
+        for (let x = lower; x < upper; x += step) {
+            range.push(x);
+        }
+
+        return new Range(range);
     }
+
 
     static from(list: any[], step: number = 1): Range {
         return Range.of(list.length, step);
     }
 
+    static linspace(lower: number, upper: number, elements: number): Range {
+        const dx = (upper-lower) / (elements-1);
+        let range = [];
+        for (let i = 0; i < elements; ++i) {
+            range.push(lower + dx * i);
+        }
+        return new Range(range);
+    }
+
+    /**
+     * Uses the range as the indices for the supplied array
+     *
+     * @example
+     * const range = new Range(0, 10, 1);
+     * range.shuffle();
+     *
+     * let arr;
+     * arr = range.index(arr);
+     *
+     * @param list
+     */
     index<T>(list: T[]): T[] {
         let newList = [];
         const indexes = this._values;
@@ -355,6 +391,28 @@ export class Range {
             newList.push(list[key]);
         }
         return newList;
+    }
+
+    /**
+     * Returns the first element of the range
+     */
+    get first() {
+        return this._values[0];
+    }
+
+    /**
+     * Returns the last element of the range
+     */
+    get last() {
+        return this._values[this._values.length - 1];
+    }
+
+    get step() {
+        return this._values[1] - this._values[0];
+    }
+
+    get firstIndex() {
+        return 0;
     }
 
     get lastIndex() {
@@ -365,7 +423,7 @@ export class Range {
         return this._size;
     }
 
-    *[Symbol.iterator]() {
+    * [Symbol.iterator]() {
         yield* this._iter;
     }
 
@@ -377,16 +435,45 @@ export class Range {
         return this._values;
     }
 
-    reverse(): Range {
-        return new Range(this.upper, this.lower, -this.step);
+    get keys() {
+        return this._keys;
     }
 
-    ofConstant<T>(c: T): T[] {
-        let out = [];
-        for (const _ of this) {
-            out.push(c);
+    public slice(start: number, end: number) {
+        return this._values.slice(start, end);
+    }
+
+    public reverse(): Range {
+        const reversed = [...this._values];
+        reversed.reverse();
+        return new Range(reversed);
+    }
+
+    public shuffle(): Range {
+        const shuffled = [...this._values]
+            .map(index => ({
+                index,
+                sort: Math.random()
+            }))
+            .sort((a, b) => a.sort - b.sort)
+            .map(({index}) => index);
+        return new Range(shuffled);
+    }
+
+    map<T>(fn: (ele: number, index: number) => T): T[] {
+        let result = [];
+        for (const [element, index] of this) {
+            result.push(fn(element, index));
         }
-        return out;
+        return result;
+    }
+
+    /**
+     * Returns the array with each element mapped to a constant
+     * @param c
+     */
+    ofConstant<T>(c: T): T[] {
+        return this.map(() => c);
     }
 }
 

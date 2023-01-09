@@ -18,10 +18,10 @@ export namespace Polynomial {
 
         // console.log('root', roots)
         // evens
-        const evens = (new Range(0, n - 1, 2)).index(coeffs);
+        const evens = (Range.of(0, n - 1, 2)).index(coeffs);
         const p_evens = FFT(evens);
 
-        const odds = (new Range(1, n - 1, 2)).index(coeffs);
+        const odds = (Range.of(1, n - 1, 2)).index(coeffs);
         const p_odds = FFT(odds);
 
         let output1 = [];
@@ -45,10 +45,10 @@ export namespace Polynomial {
 
         // console.log('root', roots)
         // evens
-        const evens = (new Range(0, n - 1, 2)).index(points);
+        const evens = (Range.of(0, n - 1, 2)).index(points);
         const p_evens = IFFT(evens);
 
-        const odds = (new Range(1, n - 1, 2)).index(points);
+        const odds = (Range.of(1, n - 1, 2)).index(points);
         const p_odds = IFFT(odds);
 
         let output1 = [];

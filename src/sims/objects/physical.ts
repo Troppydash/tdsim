@@ -1,12 +1,11 @@
 import {DynamicGraphs, Graphing} from "../algos/graphing.js";
-import {IBaseObject, TDBaseObject, BaseListElements, Traceable} from "./fundamental.js";
+import {BaseListElements, IBaseObject, TDBaseObject, Traceable} from "./fundamental.js";
 import {Binding} from "../../canvas/binding.js";
-import {Area, Plane, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
+import {Area, Plane, Range, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
 import {ICanvas, TDCanvas} from "../../canvas/canvas.js";
 import {Primitives} from "../../canvas/drawers/mechanics.js";
-import drawCircle = Primitives.drawCircle;
 import {ContourMethods} from "../algos/contour.js";
-import {PhysicsSolvers} from "../../computation/diffeq.js";
+import {IDiffEqSolvers, PhysicsSolvers} from "../../computation/diffeq.js";
 import {TDElement} from "../../canvas/drawers/basics.js";
 import {TDWorker} from "../../canvas/worker.js";
 
@@ -94,8 +93,8 @@ export namespace Mechanics {
             const radius = VSpace.VecMag(VSpace.VecSubV(Mpos, mpos));
             // drawHollowCircle(ctx, parent.pcTodc(Mpos) as any, parent.psTods(radius), '#000000');
 
-            drawCircle(ctx, parent.pcTodc(Mpos as Vec2) as any, parent.psTods(Mr), '#000000');
-            drawCircle(ctx, parent.pcTodc(mpos as Vec2) as any, parent.psTods(mr), '#ff0000');
+            Primitives.drawCircle(ctx, parent.pcTodc(Mpos as Vec2) as any, parent.psTods(Mr), '#000000');
+            Primitives.drawCircle(ctx, parent.pcTodc(mpos as Vec2) as any, parent.psTods(mr), '#ff0000');
         }
 
         supplyEnergy(percent: number) {
@@ -231,6 +230,231 @@ export namespace Mechanics {
             Primitives.DrawCircle(parent, ctx, end, size);
         }
     }
+
+
+    export interface ClothOptions {
+        dampening: number;
+        elasticity: number;
+        bodyRadius: number;
+        stringWidth: number;
+        gravity: number;
+    }
+
+    /**
+     * A cloth simulation from scratch
+     */
+    export class Cloth extends TDElement {
+        options: ClothOptions = {
+            dampening: 4,
+            elasticity: 300,
+            bodyRadius: 0.07,
+            stringWidth: 3,
+            gravity: 9,
+        }
+
+        solver: PhysicsSolvers.Solvers = PhysicsSolvers.Verlet;
+
+        stringEquilibriumLengths: number[] = [];
+        bodyVelocities: Vec2[] = [];
+        connectionLookup: ([number, number][])[] = [];
+
+        constructor(
+            private bodies: Vec2[] = [],
+            private connections: [number, number][] = [],
+            private fixed: number[] = [],
+            options: Partial<ClothOptions> = {}
+        ) {
+            super();
+
+            this.bodyVelocities = Array.from({length: bodies.length}).map(_ => [0, 0]);
+            this.options = {...this.options, ...options};
+        }
+
+
+        /// static constructors ///
+
+        static chain(
+            points: Vec2[],
+            locks: number[] = [],
+            options: Partial<ClothOptions> = {}
+        ) {
+            let connections = [];
+            for (let i = 0; i < points.length - 1; ++i) {
+                connections.push([i, i + 1]);
+            }
+
+            return new Cloth(
+                points,
+                connections,
+                [0, points.length - 1, ...locks],
+                options
+            );
+        }
+
+
+        /**
+         * Create a curtain shaped cloth with top row of alternating fixed points
+         * @param topLeft Top left coordinate
+         * @param width
+         * @param height
+         * @param options
+         */
+        static curtain(
+            topLeft: Vec2,
+            width: Range,
+            height: Range,
+            options: Partial<ClothOptions> = {}
+        ) {
+            let bodies = [];
+            let connections = [];
+            let fixed = [];
+
+            // first generate the bodies
+            for (const [row, rindex] of height) {
+                for (const [col, cindex] of width) {
+                    const body = [col, row];
+
+                    bodies.push(body);
+
+                    if (rindex == 0 && cindex % 2 == 0) {
+                        // fix the body
+                        fixed.push(bodies.length - 1);
+                    }
+                }
+            }
+
+            // then generate the conditions
+            for (const [row, rindex] of height) {
+                for (const [col, cindex] of width) {
+                    const rightConnection = [rindex * width.size + cindex, rindex * width.size + cindex + 1];
+                    const downConnection = [rindex * width.size + cindex, (rindex + 1) * width.size + cindex];
+
+                    if (rindex !== height.lastIndex) {
+                        connections.push(downConnection);
+                    }
+
+                    if (cindex !== width.lastIndex) {
+                        connections.push(rightConnection);
+                    }
+                }
+            }
+
+            return new Cloth(bodies, connections, fixed, options);
+        }
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {bodyRadius, stringWidth} = this.options;
+
+            // draw circle bodies
+            for (const body of this.bodies) {
+                Primitives.DrawCircle(parent, ctx, body, bodyRadius, '#000000');
+            }
+
+            // draw connections
+            for (const connection of this.connections) {
+                const [fromIndex, toIndex] = connection;
+                const from = this.bodies[fromIndex];
+                const to = this.bodies[toIndex];
+
+                Primitives.DrawLine(parent, ctx, from, to, stringWidth, '#000000');
+            }
+        }
+
+
+        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            // first compute the equilibrium length of the strings
+            let stringEquilibriumLengths = [];
+            for (const connection of this.connections) {
+                const p1 = this.bodies[connection[0]];
+                const p2 = this.bodies[connection[1]];
+
+                stringEquilibriumLengths.push(Plane.VecDist(p1, p2));
+            }
+
+            this.stringEquilibriumLengths = stringEquilibriumLengths;
+
+            // then cache the connection lookups
+            let connectionLookup = [];
+            for (let i = 0; i < this.bodies.length; ++i) {
+                const lookup = [];
+                for (let j = 0; j < this.connections.length; ++j) {
+                    const [p1, p2] = this.connections[j];
+                    if (p1 === i) {
+                        lookup.push([p2, j]);
+                    }
+                    if (p2 === i) {
+                        lookup.push([p1, j]);
+                    }
+                }
+                connectionLookup.push(lookup);
+            }
+            this.connectionLookup = connectionLookup;
+        }
+
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {elasticity, gravity, dampening} = this.options;
+
+            // randomize order to improve stability
+            // https://stackoverflow.com/a/46545530/9341734
+            const order = this.bodies
+                .map((_, i) => ({i, sort: Math.random()}))
+                .sort((a, b) => a.sort - b.sort)
+                .map(({i}) => i);
+
+
+            // calculate all the forces on none fixed points
+            for (const i of order) {
+                const body = this.bodies[i];
+
+                // skip if the body is fixed
+                if (this.fixed.includes(i)) {
+                    continue;
+                }
+
+                // compute the force vector from all the connections to this node
+                let totalForce = [0, 0] as Vec2;
+
+                // add gravity
+                totalForce = Plane.VecAddV(totalForce, [0, -gravity]);
+
+                // all the connections
+                const connections = this.connectionLookup[i];
+                for (const [otherIndex, connectionIndex] of connections) {
+                    const other = this.bodies[otherIndex];
+
+                    // hooke's law, F = -k(x-x0)
+                    const x0 = this.stringEquilibriumLengths[connectionIndex];
+                    const x = Plane.VecSubV(body, other);
+                    const length = Plane.VecMag(x);
+                    const force = Plane.VecMulC(x, -elasticity * (length - x0) / length);
+                    totalForce = Plane.VecAddV(totalForce, force);
+                }
+
+
+                // and damping
+                const vel = this.bodyVelocities[i];
+                totalForce = Plane.VecAddV(
+                    totalForce,
+                    Plane.VecMulC(vel, -dampening)
+                );
+
+                // apply force, verlet algorithm
+                // https://en.wikipedia.org/wiki/Verlet_integration
+                const halfVel = Plane.VecAddV(vel, Plane.VecMulC(totalForce, dt / 2));
+                const newPos = Plane.VecAddV(
+                    body,
+                    Plane.VecMulC(halfVel, dt)
+                );
+                const newVel = Plane.VecAddV(
+                    halfVel,
+                    Plane.VecMulC(totalForce, dt / 2)
+                );
+
+                this.bodies[i] = newPos;
+                this.bodyVelocities[i] = newVel;
+            }
+        }
+    }
 }
 
 export namespace Electricity {
@@ -271,7 +495,7 @@ export namespace Electricity {
             const {pos} = this;
             const {radius} = this.parameters;
 
-            drawCircle(ctx, parent.pcTodc(pos as Vec2) as Vec2, parent.psTods(radius), '#000');
+            Primitives.drawCircle(ctx, parent.pcTodc(pos as Vec2) as Vec2, parent.psTods(radius), '#000');
         }
 
         differential(t: number, p: VecN, v: VecN): VecN {
@@ -649,9 +873,9 @@ export namespace Fields {
 
         // https://www.desmos.com/calculator/kztaydrccw
         export const Turbo = value => {
-            const R = x => 0.3 + 0.7 * Math.sin(10*(x-0.75)) / (10 * (x-0.75));
+            const R = x => 0.3 + 0.7 * Math.sin(10 * (x - 0.75)) / (10 * (x - 0.75));
             const G = x => Math.exp(-(((x - 0.45) / 0.3) ** 2));
-            const B = x => (Math.exp(-(((x-0.25)/0.15) ** 2)) + 0.25 * Math.exp(-(((x-0.65)/0.25)**2))) / 1.0099;
+            const B = x => (Math.exp(-(((x - 0.25) / 0.15) ** 2)) + 0.25 * Math.exp(-(((x - 0.65) / 0.25) ** 2))) / 1.0099;
             return intensityCMap(value, R, G, B);
         }
 
@@ -773,9 +997,9 @@ export namespace Fields {
                     const color = this.cmap(normalized);
 
                     this.colored[i] = color[0];
-                    this.colored[i+1] = color[1];
-                    this.colored[i+2] = color[2];
-                    this.colored[i+3] = 255;  // 255 for opaque
+                    this.colored[i + 1] = color[1];
+                    this.colored[i + 2] = color[2];
+                    this.colored[i + 3] = 255;  // 255 for opaque
 
                     i += 4;
                 }
@@ -817,5 +1041,3 @@ export namespace Fields {
     }
 
 }
-
-
