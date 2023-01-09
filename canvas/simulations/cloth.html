@@ -35,7 +35,7 @@
             document.getElementById('root'),
             {
                 rate: {
-                    update: 240,
+                    update: 360,
                 },
                 attachments: {
                     axis: true,
@@ -44,8 +44,8 @@
                 },
                 region: {
                     right: 0.8,
-                    top: 0.8,
-                    scale: 100
+                    top: 0.6,
+                    scale: 80
                 },
                 size: {
                     width: window.innerWidth,
@@ -59,38 +59,39 @@
         const controls = await loader.inject(canvas, cvs => {
 
             // const chain = Mechanics.Cloth.chain(
-            //     Array.from({length: 60}).map((_, i) => [0.1 * i, 4]),
-            //     [20, 30],
+            //     Array.from({length: 30}).map((_, i) => [0.2 * i, 4]),
+            //     [10, 15],
             //     {
-            //         dampening: 6,
-            //         bodyRadius: 0,
-            //         elasticity: 600
-            //     }
-            // );
-            // cvs.addElement(chain);
-
-            // const chain = Mechanics.Cloth.curtain(
-            //     [0, 4],
-            //     Range.linspace(0, 12, 31),
-            //     Range.linspace(4, 0, 10),
-            //     {
-            //         dampening: 7,
+            //         dampening: 4,
             //         bodyRadius: 0.05,
-            //         elasticity: 600
+            //         elasticity: 1000,
+            //         gravity: 9
             //     }
             // );
             // cvs.addElement(chain);
-            cvs.inputs.drag.subscribe((newValue, oldValue) => {
-                if (oldValue === null && newValue !== null) {
-                    console.log('startdrag', newValue);
-                } else if (newValue == null && oldValue != null) {
-                    console.log('enddrag', oldValue);
-                }
-            })
 
-            cvs.inputs.click.subscribe((newValue) => {
-                console.log('click', newValue);
-            });
+            const curtain = Mechanics.Cloth.curtain(
+                Range.linspace(0, 12, 61),
+                Range.linspace(6, 2, 10),
+                {
+                    dampening: 6,
+                    bodyRadius: 0.05,
+                    elasticity: 1000
+                }
+            );
+            cvs.addElement(curtain);
+
+            // cvs.inputs.drag.subscribe((newValue, oldValue) => {
+            //     if (oldValue === null && newValue !== null) {
+            //         console.log('startdrag', newValue);
+            //     } else if (newValue == null && oldValue != null) {
+            //         console.log('enddrag', oldValue);
+            //     }
+            // })
+            //
+            // cvs.inputs.click.subscribe((newValue) => {
+            //     console.log('click', newValue);
+            // });
 
         });
 

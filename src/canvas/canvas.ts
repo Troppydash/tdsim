@@ -503,8 +503,13 @@ export class TDCanvas implements ICanvas {
                     this.inputs.drag.update(position);
                 }
             },
-            mouseleave: () => {
+            mouseleave: event => {
                 this.inputs.cursor.update(null);
+
+                // force mouseup when mouse exits the canvas
+                if (this.inputs.drag !== null) {
+                    this.inputsHandler.mouseup(event);
+                }
             },
             mousedown: event => {
                 const position = this.worldToLocal(computePosition(event));
@@ -521,11 +526,11 @@ export class TDCanvas implements ICanvas {
                 }
 
                 // https://stackoverflow.com/a/59741870/9341734
-                const delta = 10;  // sensitivity
+                const delta = 0.01;  // sensitivity
                 const diff = Plane.VecDist(position, this.inputStartDrag);
 
+                // a click if the mouse has not moved
                 if (diff < delta) {
-                    // a click
                     this.inputs.click.update(position);
                 }
 

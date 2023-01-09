@@ -1,13 +1,13 @@
-import {DynamicGraphs, Graphing} from "../algos/graphing.js";
+import {DynamicGraphs} from "../algos/graphing.js";
 import {BaseListElements, IBaseObject, TDBaseObject, Traceable} from "./fundamental.js";
 import {Binding} from "../../canvas/binding.js";
 import {Area, Plane, Range, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
 import {ICanvas, TDCanvas} from "../../canvas/canvas.js";
 import {Primitives} from "../../canvas/drawers/mechanics.js";
 import {ContourMethods} from "../algos/contour.js";
-import {IDiffEqSolvers, PhysicsSolvers} from "../../computation/diffeq.js";
+import {PhysicsSolvers} from "../../computation/diffeq.js";
 import {TDElement} from "../../canvas/drawers/basics.js";
-import {TDWorker} from "../../canvas/worker.js";
+import {SubscriberType} from "../../canvas/observable.js";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -238,6 +238,7 @@ export namespace Mechanics {
         bodyRadius: number;
         stringWidth: number;
         gravity: number;
+        interactive: boolean;
     }
 
     /**
@@ -250,6 +251,7 @@ export namespace Mechanics {
             bodyRadius: 0.07,
             stringWidth: 3,
             gravity: 9,
+            interactive: true
         }
 
         solver: PhysicsSolvers.Solvers = PhysicsSolvers.Verlet;
@@ -257,6 +259,12 @@ export namespace Mechanics {
         stringEquilibriumLengths: number[] = [];
         bodyVelocities: Vec2[] = [];
         connectionLookup: ([number, number][])[] = [];
+
+        // interactive variables
+        handler: number;
+        draggedBody: number = null;  // null if the drag did not find a body
+        wasBodyFixed: boolean = false;
+        startDrag: Vec2 = null;
 
         constructor(
             private bodies: Vec2[] = [],
@@ -272,7 +280,6 @@ export namespace Mechanics {
 
 
         /// static constructors ///
-
         static chain(
             points: Vec2[],
             locks: number[] = [],
@@ -294,13 +301,11 @@ export namespace Mechanics {
 
         /**
          * Create a curtain shaped cloth with top row of alternating fixed points
-         * @param topLeft Top left coordinate
          * @param width
          * @param height
          * @param options
          */
         static curtain(
-            topLeft: Vec2,
             width: Range,
             height: Range,
             options: Partial<ClothOptions> = {}
@@ -360,8 +365,81 @@ export namespace Mechanics {
             }
         }
 
+        handleFocus(newValue: Vec2 | null, oldValue: Vec2 | null) {
+            if (oldValue == null && newValue != null) {
+                // when starting click
 
-        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+                // this is for cutting
+                this.startDrag = newValue;
+
+
+                // select the body
+                const body = this.bodies.findIndex((a) => {
+                    return Plane.VecDist(newValue, a) < this.options.bodyRadius * 2;
+                });
+                if (body == -1) {
+                    return;
+                }
+
+                // cache the fixed state of the body & set the body to be fixed when dragging
+                this.wasBodyFixed = this.fixed.includes(body);
+                if (!this.wasBodyFixed) {
+                    this.fixed.push(body);
+                }
+
+                this.draggedBody = body;
+                return;
+            }
+
+            if (oldValue != null && newValue != null) {
+                if (this.draggedBody == null)
+                    return;
+
+                // when dragging
+                // update the position of this.body
+                this.bodies[this.draggedBody] = newValue;
+            }
+
+            if (newValue == null && oldValue != null) {
+                // reset startDrag
+                const startDrag = this.startDrag;
+                this.startDrag = null;
+
+                if (this.draggedBody == null) {
+                    // cut strings if find any
+                    // do a copy of the connections array because the for loop modifies it
+                    const newConnections = [];
+                    for (const [index, connection] of [...this.connections].entries()) {
+                        const [b1, b2] = connection;
+                        const body1 = this.bodies[b1];
+                        const body2 = this.bodies[b2];
+
+                        if (!Plane.Intersect(startDrag, oldValue, body1, body2)) {
+                            newConnections.push(connection);
+                        }
+                        this.connections = newConnections;
+                    }
+
+                    // recompute cache
+                    this.cacheConnections();
+
+                    return;
+                }
+
+                // when stopped dragging
+                // remove its fixed attribute if it did not have one
+                if (!this.wasBodyFixed) {
+                    this.fixed = this.fixed.filter(body => body !== this.draggedBody);
+                }
+                this.draggedBody = null;
+            }
+        }
+
+        /**
+         * Computes the stringEquilibriumLengths array and the connectionLookup dictionary
+         * @private
+         */
+        private cacheConnections() {
             // first compute the equilibrium length of the strings
             let stringEquilibriumLengths = [];
             for (const connection of this.connections) {
@@ -391,6 +469,15 @@ export namespace Mechanics {
             this.connectionLookup = connectionLookup;
         }
 
+        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            this.cacheConnections();
+
+            // handle the interactivity
+            if (this.options.interactive) {
+                this.handler = parent.inputs.drag.subscribe(this.handleFocus.bind(this), SubscriberType.POST_UPDATE);
+            }
+        }
+
         update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
             const {elasticity, gravity, dampening} = this.options;
 
@@ -418,6 +505,7 @@ export namespace Mechanics {
                 totalForce = Plane.VecAddV(totalForce, [0, -gravity]);
 
                 // all the connections
+                let stringForce = [0, 0] as Vec2;
                 const connections = this.connectionLookup[i];
                 for (const [otherIndex, connectionIndex] of connections) {
                     const other = this.bodies[otherIndex];
@@ -427,16 +515,20 @@ export namespace Mechanics {
                     const x = Plane.VecSubV(body, other);
                     const length = Plane.VecMag(x);
                     const force = Plane.VecMulC(x, -elasticity * (length - x0) / length);
-                    totalForce = Plane.VecAddV(totalForce, force);
+                    stringForce = Plane.VecAddV(stringForce, force);
                 }
 
 
-                // and damping
+                // and damping to string forces, only when it is connected
                 const vel = this.bodyVelocities[i];
-                totalForce = Plane.VecAddV(
-                    totalForce,
-                    Plane.VecMulC(vel, -dampening)
-                );
+                if (connections.length > 0) {
+                    stringForce = Plane.VecAddV(
+                        stringForce,
+                        Plane.VecMulC(vel, -dampening)
+                    );
+                }
+
+                totalForce = Plane.VecAddV(totalForce, stringForce);
 
                 // apply force, verlet algorithm
                 // https://en.wikipedia.org/wiki/Verlet_integration
@@ -452,6 +544,12 @@ export namespace Mechanics {
 
                 this.bodies[i] = newPos;
                 this.bodyVelocities[i] = newVel;
+            }
+        }
+
+        stop(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            if (this.options.interactive) {
+                parent.inputs.drag.unsubscribe(this.handler);
             }
         }
     }

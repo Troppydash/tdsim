@@ -2,7 +2,7 @@
 export type Subscriber<T> = (newValue: T, oldValue: T) => void;
 type Cloneable<T> = (value: T) => T;
 
-const enum SubscriberType {
+export const enum SubscriberType {
     PRE_UPDATE,
     POST_UPDATE,
 }

@@ -20,6 +20,11 @@ export namespace Scalar {
 export namespace Plane {
     export const Zero: Vec2 = [0, 0];
 
+    export function VecProj(a: Vec2, b: Vec2): Vec2 {
+        const normB = VecNormalize(b);
+        return VecMulC(normB, VecDot(a, normB));
+    }
+
     export function VecMag(a: Vec2): Scalar {
         return Math.sqrt(a[0] * a[0] + a[1] * a[1])
     }
