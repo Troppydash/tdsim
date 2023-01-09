@@ -69,17 +69,29 @@
             // );
             // cvs.addElement(chain);
 
-            const chain = Mechanics.Cloth.curtain(
-                [0, 4],
-                Range.linspace(0, 12, 31),
-                Range.linspace(4, 0, 10),
-                {
-                    dampening: 7,
-                    bodyRadius: 0.05,
-                    elasticity: 600
+            // const chain = Mechanics.Cloth.curtain(
+            //     [0, 4],
+            //     Range.linspace(0, 12, 31),
+            //     Range.linspace(4, 0, 10),
+            //     {
+            //         dampening: 7,
+            //         bodyRadius: 0.05,
+            //         elasticity: 600
+            //     }
+            // );
+            // cvs.addElement(chain);
+            cvs.inputs.drag.subscribe((newValue, oldValue) => {
+                if (oldValue === null && newValue !== null) {
+                    console.log('startdrag', newValue);
+                } else if (newValue == null && oldValue != null) {
+                    console.log('enddrag', oldValue);
                 }
-            );
-            cvs.addElement(chain);
+            })
+
+            cvs.inputs.click.subscribe((newValue) => {
+                console.log('click', newValue);
+            });
+
         });
 
     }

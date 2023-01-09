@@ -11,6 +11,12 @@ export type Mat2 = [
 
 export type VecN = Vec2 | Vec3 | number[];
 
+export namespace Scalar {
+    export function round(number: number, decimal: number = 2): string {
+        return number.toFixed(decimal);
+    }
+}
+
 export namespace Plane {
     export const Zero: Vec2 = [0, 0];
 

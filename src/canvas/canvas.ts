@@ -1,42 +1,9 @@
-import {Plane, Vec2} from "../computation/vector.js";
+import {Plane, Scalar, Vec2} from "../computation/vector.js";
 import {mergeDeep} from "../lib/merge.js";
 import {TDRawLine, TDText} from "./drawers/basics.js";
 import {TDFPSClock} from "./drawers/basics.js";
+import {GetObservable, Observable, Subscriber, TDObservable} from "./observable.js";
 
-export interface ICanvas {
-    element: HTMLCanvasElement;
-    inputs: object;
-    ctx: CanvasRenderingContext2D;
-    options: CanvasOptions;
-
-    totalTime: number;
-
-    // backwards compat
-    pcTodc(pc: Vec2): Vec2;
-
-    psTods(ps: number): number;
-
-
-    start(): void;
-
-    stop(): void;
-
-    render(newTime: number, reset?: boolean): void;
-
-    localToWorld(local: Vec2): Vec2;
-
-    localToWorldScalar(local: number): number;
-
-    addElement(element: IElement, name?: string, layer?: number);
-
-    drawableArea(): Vec2;
-
-    anchor(): Vec2;
-
-    borders(): { up: Vec2, down: Vec2, left: Vec2, right: Vec2 };
-
-    wakeUp(duration: number);
-}
 
 export interface CanvasOptions {
     rate: {
@@ -65,8 +32,56 @@ export interface CanvasOptions {
 }
 
 interface CanvasInputs {
-    hover?: [number, number];
+    // null if not on canvas, [x, y] if on canvas
+    cursor: Observable<null | [number, number]>;
+
+    // null if not dragging, [x, y] during dragging
+    drag: Observable<null | [number, number]>;
+
+    // position of the last click (ie mousedown), null if no clicks
+    click: Observable<null | [number, number]>;
 }
+
+export interface ICanvas {
+    readonly element: HTMLCanvasElement;
+    readonly inputs: CanvasInputs;
+    readonly ctx: CanvasRenderingContext2D;
+    readonly options: CanvasOptions;
+
+    readonly totalTime: number;
+
+    // backwards compat, deprecated
+    pcTodc(pc: Vec2): Vec2;
+
+    psTods(ps: number): number;
+
+    start(): void;
+
+    stop(): void;
+
+    render(newTime: number, reset?: boolean): void;
+
+    localToWorld(local: Vec2): Vec2;
+
+    localToWorldScalar(local: number): number;
+
+    worldToLocal(world: Vec2): Vec2;
+
+    worldToLocalScalar(world: number): number;
+
+    addElement(element: IElement, name?: string, layer?: number);
+
+    drawableArea(): Vec2;
+
+    anchor(): Vec2;
+
+    borders(): { up: Vec2, down: Vec2, left: Vec2, right: Vec2 };
+
+    wakeUp(duration: number);
+
+    input(type: keyof CanvasInputs): GetObservable<CanvasInputs[keyof CanvasInputs]>;
+}
+
 
 /**
  * The main JS canvas rendering class
@@ -102,9 +117,7 @@ export class TDCanvas implements ICanvas {
         }
     }
 
-    public element: HTMLCanvasElement;
-    public inputs: CanvasInputs;
-    public inputsHandler: { [key: string]: (event: any) => void };
+    public readonly element: HTMLCanvasElement;
     public ctx: CanvasRenderingContext2D;
     public options: CanvasOptions;
     public elements: { [key: string]: IElement }[];  // layered elements
@@ -118,15 +131,23 @@ export class TDCanvas implements ICanvas {
     protected hibernation: boolean;
     protected ticks: number;
 
+    /// input system ///
+    public readonly inputs: CanvasInputs = {
+        cursor: new TDObservable(null),
+        drag: new TDObservable(null),
+        click: new TDObservable(null),
+    }
+    private inputStartDrag: Vec2 | null = null;
+    private inputsHandler: Record<string, any>;
 
     constructor(element, options: Partial<CanvasOptions> = {}) {
         this.element = element;
-        this.inputs = {};
-        this.inputsHandler = {};
 
         this.ctx = element.getContext('2d');
         this.options = mergeDeep(TDCanvas.defaultOptions, options) as CanvasOptions;
         this.elements = [];
+
+        this.inputsHandler = {};
 
         this.time = 0;
         this.dt = 0;
@@ -187,20 +208,20 @@ export class TDCanvas implements ICanvas {
             const borders = this.borders();
 
             const upText = new TDText(
-                `${Math.round(borders.up[1])}`,
+                `${Scalar.round(borders.up[1], 1)}`,
                 Plane.VecAddV(borders.up, [5 / scale, -25 / scale])
             );
             const downText = new TDText(
-                `${Math.round(borders.down[1])}`,
+                `${Scalar.round(borders.down[1], 1)}`,
                 Plane.VecAddV(borders.down, [5 / scale, 10 / scale])
             );
 
             const leftText = new TDText(
-                `${Math.round(borders.left[0])}`,
+                `${Scalar.round(borders.left[0], 1)}`,
                 Plane.VecAddV(borders.left, [5 / scale, -25 / scale])
             );
             const rightText = new TDText(
-                `${Math.round(borders.right[0])}`,
+                `${Scalar.round(borders.right[0], 1)}`,
                 Plane.VecAddV(borders.right, [-40 / scale, -25 / scale])
             );
 
@@ -450,22 +471,65 @@ export class TDCanvas implements ICanvas {
         const upPX = region.top * size.height;
         const dy = (y - upPX) / region.scale;
 
-        return [dx, dy];
+        return [dx, -dy];
+    }
+
+    public worldToLocal(world: Vec2): Vec2 {
+        return this.dcTopc(world) as Vec2;
+    }
+
+    public worldToLocalScalar(world: number): number {
+        return world / this.options.region.scale;
     }
 
     /**
      * Registers all the mouse inputs
      */
     private registerInputs() {
-        this.inputs.hover = null;
+        // this could be moved into the constructor, thoughts?
+        const computePosition = (event) => {
+            const {clientX, clientY} = event;
+            const {left, top} = this.element.getBoundingClientRect();
+            return [clientX - left, clientY - top] as Vec2;
+        };
+
         this.inputsHandler = {
-            mousemove(event) {
-                const {clientX, clientY} = event;
-                const {left, top} = this.element.getBoundingClientRect();
-                this.inputs.hover = [clientX - left, clientY - top];
+            mousemove: event => {
+                const position = this.worldToLocal(computePosition(event));
+                this.inputs.cursor.update(position);
+
+                // update drag only when it is pressed
+                if (this.inputs.drag.value() !== null) {
+                    this.inputs.drag.update(position);
+                }
             },
-            mouseleave(event) {
-                this.inputs.hover = null;
+            mouseleave: () => {
+                this.inputs.cursor.update(null);
+            },
+            mousedown: event => {
+                const position = this.worldToLocal(computePosition(event));
+                this.inputs.drag.update(position);
+                this.inputStartDrag = position;
+            },
+            mouseup: event => {
+                const position = this.worldToLocal(computePosition(event));
+
+                this.inputs.drag.update(null);
+
+                if (this.inputStartDrag === null) {
+                    return;
+                }
+
+                // https://stackoverflow.com/a/59741870/9341734
+                const delta = 10;  // sensitivity
+                const diff = Plane.VecDist(position, this.inputStartDrag);
+
+                if (diff < delta) {
+                    // a click
+                    this.inputs.click.update(position);
+                }
+
+                this.inputStartDrag = null;
             }
         }
 
@@ -488,22 +552,21 @@ export class TDCanvas implements ICanvas {
             this.element.removeEventListener(key, value);
         }
         this.inputsHandler = {};
-        this.inputs.hover = null;
     }
 
     /**
-     * Returns the input status of a given type
+     * @deprecated, please use the (canvas.input) property directly
+     *
+     * Returns the input status of a given type. This function is maintained for backwards compatibility only
      * @param type
-     * @param options
      */
-    public input(type: 'hover', options): any {
+    public input(type: keyof CanvasInputs): GetObservable<CanvasInputs[keyof CanvasInputs]> {
         switch (type) {
-            case 'hover': {
-                return this.inputs.hover;
+            case 'cursor': {
+                return this.inputs.cursor.value();
             }
         }
     }
-
 
     /**
      * Returns the size of the local drawable area
