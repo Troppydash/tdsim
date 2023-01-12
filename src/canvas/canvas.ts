@@ -31,7 +31,7 @@ export interface CanvasOptions {
     }
 }
 
-interface CanvasInputs {
+export interface CanvasInputs {
     // null if not on canvas, [x, y] if on canvas
     cursor: Observable<null | [number, number]>;
 

@@ -507,7 +507,10 @@ export async function InjectSelectable(
 
 
 interface LoaderOptions {
+    // automatically start the simulation
     autostart: boolean;
+    // automatically pause the simulation on focus lost
+    pauseOnHidden: boolean;
 }
 
 interface LoaderControls {
@@ -526,26 +529,48 @@ interface LoaderControls {
 export class Loader {
     options: LoaderOptions = {
         autostart: true,
+        pauseOnHidden: true
     }
 
     constructor(options: Partial<LoaderOptions> = {}) {
         this.options = { ...this.options, ...options };
     }
 
+    /**
+     * Injects a canvas and start the simulation based on the LoaderOptions
+     * @param canvas
+     * @param injector
+     */
     async inject(canvas: ICanvas, injector: Injector): Promise<LoaderControls> {
         const cleanup = await injector(canvas);
-        const {stop, pause} = animate(canvas);
-        const {autostart} = this.options;
+        const {stop, pause, isPaused, setPause} = animate(canvas);
 
+        const {autostart, pauseOnHidden} = this.options;
         if (!autostart) {
             pause();
         }
 
+
+        // this part is very hacky
+        let autopausehandler;
+        if (pauseOnHidden && window && document) {
+            let oldPause = !autostart;
+            autopausehandler = event => {
+                if (document.hidden) {
+                    oldPause = isPaused();
+                    setPause(true);
+                } else {
+                    setPause(oldPause);
+                }
+            };
+            window.addEventListener('visibilitychange', autopausehandler);
+        }
+
         return {
             stop() {
-                if (cleanup) {
-                    cleanup();
-                }
+                cleanup && cleanup();
+                autopausehandler && window.removeEventListener('visibilitychange', autopausehandler);
+
                 stop();
             },
             pause,

@@ -8,6 +8,7 @@ import {ContourMethods} from "../algos/contour.js";
 import {PhysicsSolvers} from "../../computation/diffeq.js";
 import {TDElement} from "../../canvas/drawers/basics.js";
 import {SubscriberType} from "../../canvas/observable.js";
+import {BindHandlers, ClickHandler, DragHandler} from "../../canvas/input.js";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -790,8 +791,8 @@ export namespace Mechanics {
         connectionLookup: ([number, number][])[] = [];
 
         // interactive variables
-        focusHandler: number;
-        clickHandler: number;
+        focusHandler: DragHandler;
+        clickHandler: ClickHandler;
         draggedBody: number = null;  // null if the drag did not find a body
         wasBodyFixed: boolean = false;
         startDrag: Vec2 = null;
@@ -806,6 +807,9 @@ export namespace Mechanics {
 
             this.bodyVelocities = Array.from({length: bodies.length}).map(_ => [0, 0]);
             this.options = {...this.options, ...options};
+
+            // binding handlers
+            BindHandlers<Cloth>(this, ["handleDragStart", "handleDragEnd", "handleDragDuring", "handleClick"]);
         }
 
 
@@ -915,84 +919,79 @@ export namespace Mechanics {
             }
         }
 
-        private handleFocus(newValue: Vec2 | null, oldValue: Vec2 | null) {
-            if (oldValue == null && newValue != null) {
-                // when starting click
-
-                // this is for cutting
-                this.startDrag = newValue;
+        handleDragStart(position: Vec2) {
+            // this is for cutting
+            this.startDrag = position;
 
 
-                // select the body
-                const body = this.bodies.findIndex((a) => {
-                    return Plane.VecDist(newValue, a) < this.options.bodyRadius * 2;
-                });
-                if (body == -1) {
-                    return;
-                }
-
-                // cache the fixed state of the body & set the body to be fixed when dragging
-                this.wasBodyFixed = this.fixed.includes(body);
-                if (!this.wasBodyFixed) {
-                    this.fixed.push(body);
-                }
-
-                this.draggedBody = body;
+            // select the body
+            const body = this.bodies.findIndex((a) => {
+                return Plane.VecDist(position, a) < this.options.bodyRadius * 2;
+            });
+            if (body == -1) {
                 return;
             }
 
-            if (oldValue != null && newValue != null) {
-                if (this.draggedBody == null)
-                    return;
-
-                // when dragging
-                // update the position of this.body
-                this.bodies[this.draggedBody] = newValue;
+            // cache the fixed state of the body & set the body to be fixed when dragging
+            this.wasBodyFixed = this.fixed.includes(body);
+            if (!this.wasBodyFixed) {
+                this.fixed.push(body);
             }
 
-            if (newValue == null && oldValue != null) {
-                // reset startDrag
-                const startDrag = this.startDrag;
-                this.startDrag = null;
-
-                if (this.draggedBody == null) {
-                    // cut strings if find any
-
-                    const newStringLength = [];
-                    const newConnections = [];
-                    for (const [index, connection] of [...this.connections].entries()) {
-                        const [b1, b2] = connection;
-                        const body1 = this.bodies[b1];
-                        const body2 = this.bodies[b2];
-
-                        if (!Plane.Intersect(startDrag, oldValue, body1, body2)) {
-                            newConnections.push(connection);
-                            newStringLength.push(this.stringEquilibriumLengths[index]);
-                        }
-                    }
-
-                    this.connections = newConnections;
-                    this.stringEquilibriumLengths = newStringLength;
-
-                    // recompute cache
-                    this.cacheConnections();
-
-                    return;
-                }
-
-                // when stopped dragging
-                // remove its fixed attribute if it did not have one
-                if (!this.wasBodyFixed) {
-                    this.fixed = this.fixed.filter(body => body !== this.draggedBody);
-                }
-                this.draggedBody = null;
-            }
+            this.draggedBody = body;
         }
 
-        private handleClick(newValue: Vec2 | null, oldValue: Vec2 | null) {
+        handleDragDuring(position: Vec2) {
+            if (this.draggedBody == null)
+                return;
+
+            // when dragging
+            // update the position of this.body
+            this.bodies[this.draggedBody] = position;
+        }
+
+        handleDragEnd(position: Vec2) {
+            // reset startDrag
+            const startDrag = this.startDrag;
+            this.startDrag = null;
+
+            if (this.draggedBody == null) {
+                // cut strings if find any
+
+                const newStringLength = [];
+                const newConnections = [];
+                for (const [index, connection] of [...this.connections].entries()) {
+                    const [b1, b2] = connection;
+                    const body1 = this.bodies[b1];
+                    const body2 = this.bodies[b2];
+
+                    if (!Plane.Intersect(startDrag, position, body1, body2)) {
+                        newConnections.push(connection);
+                        newStringLength.push(this.stringEquilibriumLengths[index]);
+                    }
+                }
+
+                this.connections = newConnections;
+                this.stringEquilibriumLengths = newStringLength;
+
+                // recompute cache
+                this.cacheConnections();
+
+                return;
+            }
+
+            // when stopped dragging
+            // remove its fixed attribute if it did not have one
+            if (!this.wasBodyFixed) {
+                this.fixed = this.fixed.filter(body => body !== this.draggedBody);
+            }
+            this.draggedBody = null;
+        }
+
+        handleClick(position: Vec2) {
             // select body
             const body = this.bodies.findIndex((a) => {
-                return Plane.VecDist(newValue, a) < this.options.bodyRadius * 2;
+                return Plane.VecDist(position, a) < this.options.bodyRadius * 2;
             });
             if (body == -1) {
                 return;
@@ -1045,8 +1044,10 @@ export namespace Mechanics {
 
             // handle the interactivity
             if (this.options.interactive) {
-                this.focusHandler = parent.inputs.drag.subscribe(this.handleFocus.bind(this), SubscriberType.POST_UPDATE);
-                this.clickHandler = parent.inputs.click.subscribe(this.handleClick.bind(this), SubscriberType.POST_UPDATE);
+                this.focusHandler = new DragHandler(parent.inputs.drag);
+                this.focusHandler.register(this.handleDragStart, this.handleDragDuring, this.handleDragEnd);
+                this.clickHandler = new ClickHandler(parent.inputs.click);
+                this.clickHandler.register(this.handleClick);
             }
         }
 
@@ -1121,8 +1122,8 @@ export namespace Mechanics {
 
         stop(parent: ICanvas, ctx: CanvasRenderingContext2D) {
             if (this.options.interactive) {
-                parent.inputs.drag.unsubscribe(this.focusHandler);
-                parent.inputs.click.unsubscribe(this.clickHandler);
+                this.focusHandler.remove();
+                this.clickHandler.remove();
             }
         }
     }

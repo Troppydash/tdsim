@@ -6,6 +6,7 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Cloth Simulation</title>
+
     <style>
         canvas {
             width: 100vw;
@@ -28,6 +29,7 @@
     import {Loader} from "../../build/tdsim/canvas/loader.js";
     import {Mechanics} from "../../build/tdsim/sims/objects/physical.js";
     import {Range} from "../../build/tdsim/computation/vector.js";
+    import {TDTimer} from "../../build/tdsim/sims/objects/fundamental.js";
 
     async function main() {
         // create canvas
@@ -69,6 +71,10 @@
             //     }
             // );
             // cvs.addElement(chain);
+            const timer = new TDTimer(
+                [0, 0]
+            );
+            cvs.addElement(timer);
 
             const curtain = Mechanics.Cloth.curtain(
                 Range.linspace(0, 12, 61),

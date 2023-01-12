@@ -21,7 +21,7 @@ export interface Observable<T> {
      * @param callback
      * @param type
      */
-    subscribe(callback: Subscriber<T>, type: SubscriberType): number;
+    subscribe(callback: Subscriber<T>, type?: SubscriberType): number;
 
     /**
      * Unsubscribes a subscription based on its id
