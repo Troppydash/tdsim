@@ -1,6 +1,9 @@
 export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
+export type VecN = Vec2 | Vec3 | number[];
+
 export type Scalar = number;
+
 export type Complex = Vec2;
 
 export type Mat2 = [
@@ -8,8 +11,15 @@ export type Mat2 = [
     number, number
 ];
 
+// https://github.com/microsoft/TypeScript/issues/26223#issuecomment-410642988
+export interface Mat<R extends number = 4, C extends number = 4> {
+    length: R,
+    0: {
+        0: number,
+        length: C,
+    }
+}
 
-export type VecN = Vec2 | Vec3 | number[];
 
 export namespace Scalar {
     export function round(number: number, decimal: number = 2): string {
@@ -324,6 +334,11 @@ export namespace Complex {
         return `(${round_number(c[0], prec)} + ${round_number(c[1], prec)}i)`;
     }
 }
+
+export namespace Matrix {
+
+}
+
 
 
 export class Range {
