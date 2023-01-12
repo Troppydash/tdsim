@@ -3,6 +3,7 @@ import {mergeDeep} from "../lib/merge.js";
 import {TDRawLine, TDText} from "./drawers/basics.js";
 import {TDFPSClock} from "./drawers/basics.js";
 import {GetObservable, Observable, Subscriber, TDObservable} from "./observable.js";
+import {Cursor, CursorStyler} from "./input.js";
 
 
 export interface CanvasOptions {
@@ -47,6 +48,7 @@ export interface ICanvas {
     readonly inputs: CanvasInputs;
     readonly ctx: CanvasRenderingContext2D;
     readonly options: CanvasOptions;
+    readonly cursor: CursorStyler;
 
     readonly totalTime: number;
 
@@ -140,6 +142,8 @@ export class TDCanvas implements ICanvas {
     private inputStartDrag: Vec2 | null = null;
     private inputsHandler: Record<string, any>;
 
+    public readonly cursor: CursorStyler;
+
     constructor(element, options: Partial<CanvasOptions> = {}) {
         this.element = element;
 
@@ -177,6 +181,9 @@ export class TDCanvas implements ICanvas {
             // add 10 ticks for initial rendering
             this.ticks = this.options.battery.newTicks;
         }
+
+        // cursor styles
+        this.cursor = new Cursor(this.element);
     }
 
     /**

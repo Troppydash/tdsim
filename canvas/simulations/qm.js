@@ -6,7 +6,7 @@ function MaxwellInjector(cvs) {
     const {MaxwellGrapher} = graphing.DynamicGraphs;
     const { Range } = computation.vector;
 
-    const range = new Range(0, 10, 1 / 60);
+    const range = Range.of(0, 10, 1 / 60);
     let points = [];
     let bfield = null;
     // generate points

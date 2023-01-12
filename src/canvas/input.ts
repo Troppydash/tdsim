@@ -33,7 +33,7 @@ export class ClickHandler implements Handler<CanvasInputs['click']> {
     ) {
     }
 
-    register(onClick: (Vec2) => void) {
+    register(onClick: (pos: Vec2) => void) {
         this.id = this.input.subscribe(
             (newValue, oldValue) => {
                 onClick(newValue);
@@ -59,9 +59,9 @@ export class DragHandler implements Handler<CanvasInputs['drag']> {
     }
 
     register(
-        startDrag? : (Vec2) => void,
-        duringDrag? : (Vec2) => void,
-        endDrag? : (Vec2) => void,
+        startDrag? : (pos: Vec2) => void,
+        duringDrag? : (pos: Vec2) => void,
+        endDrag? : (pos: Vec2) => void,
     ) {
         this.id = this.input.subscribe((newValue, oldValue) => {
             if (newValue !== null && oldValue !== null) {
@@ -79,6 +79,36 @@ export class DragHandler implements Handler<CanvasInputs['drag']> {
     }
 
 }
+
+export class CursorHandler implements Handler<CanvasInputs['cursor']> {
+    private id;
+
+    constructor(
+        public readonly input: CanvasInputs['cursor']
+    ) {
+    }
+
+    register(
+        onEnter?: (pos: Vec2) => void,
+        onExit?: (pos: Vec2) => void,
+        hover?: (pos: Vec2) => void
+    ) {
+        this.id = this.input.subscribe((newValue, oldValue) => {
+            if (newValue !== null && oldValue !== null) {
+                hover && hover(newValue);
+            } else if (newValue !== null && oldValue === null) {
+                onEnter && onEnter(newValue);
+            } else if (newValue === null && oldValue !== null) {
+                onExit && onExit(oldValue);
+            }
+        })
+    }
+
+    remove() {
+        this.input.unsubscribe(this.id);
+    }
+}
+
 
 // https://stackoverflow.com/a/53931837/9341734
 // TODO: Fix that this only works with public methods
@@ -104,5 +134,32 @@ type OnlyClassMethods<T> = {
 export function BindHandlers<T>(obj: T, handlers: (OnlyClassMethods<T>)[]) {
     for (const handle of handlers) {
         obj[handle] = (obj[handle] as any).bind(obj);
+    }
+}
+
+
+/// Cursors ///
+export const enum CursorStyle {
+    DEFAULT = 'default',
+    POINTER = 'pointer'
+}
+
+export interface CursorStyler {
+    changeStyle(newStyle: CursorStyle);
+    getStyle(): CursorStyle;
+}
+
+
+export class Cursor implements CursorStyler {
+    constructor(
+        private element: HTMLElement,
+    ) {}
+
+    public changeStyle(newStyle: CursorStyle) {
+        this.element.style.cursor = newStyle;
+    }
+
+    public getStyle() {
+        return this.element.style.cursor as CursorStyle;
     }
 }

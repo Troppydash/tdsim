@@ -7,8 +7,7 @@ import {Primitives} from "../../canvas/drawers/mechanics.js";
 import {ContourMethods} from "../algos/contour.js";
 import {PhysicsSolvers} from "../../computation/diffeq.js";
 import {TDElement} from "../../canvas/drawers/basics.js";
-import {SubscriberType} from "../../canvas/observable.js";
-import {BindHandlers, ClickHandler, DragHandler} from "../../canvas/input.js";
+import {BindHandlers, ClickHandler, CursorStyle, DragHandler} from "../../canvas/input.js";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -793,6 +792,7 @@ export namespace Mechanics {
         // interactive variables
         focusHandler: DragHandler;
         clickHandler: ClickHandler;
+
         draggedBody: number = null;  // null if the drag did not find a body
         wasBodyFixed: boolean = false;
         startDrag: Vec2 = null;
@@ -809,7 +809,10 @@ export namespace Mechanics {
             this.options = {...this.options, ...options};
 
             // binding handlers
-            BindHandlers<Cloth>(this, ["handleDragStart", "handleDragEnd", "handleDragDuring", "handleClick"]);
+            BindHandlers<Cloth>(
+                this,
+                ["handleDragStart", "handleDragEnd", "handleDragDuring", "handleClick"]
+            );
         }
 
 
@@ -884,11 +887,6 @@ export namespace Mechanics {
         render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
             const {bodyRadius, stringWidth, stress} = this.options;
 
-            // draw circle bodies
-            for (const body of this.bodies) {
-                Primitives.DrawCircle(parent, ctx, body, bodyRadius, '#000000');
-            }
-
             // find max stretch
             let maxStretch = -1;
             if (stress) {
@@ -917,6 +915,28 @@ export namespace Mechanics {
 
                 Primitives.DrawLine(parent, ctx, from, to, stringWidth, color);
             }
+
+
+            // draw circle bodies, last
+            for (const [index, body] of this.bodies.entries()) {
+                if (this.fixed.includes(index)) {
+                    Primitives.DrawCircle(parent, ctx, body, bodyRadius, '#000000');
+                } else {
+                    Primitives.DrawHollowCircle(parent, ctx, body, bodyRadius, 0.02,'#000000');
+                }
+            }
+
+            // render a cutting line
+            const cursor = parent.inputs.cursor.value();
+            if (this.draggedBody == null && this.startDrag != null && cursor != null) {
+                Primitives.DrawDashedLine(
+                    parent, ctx,
+                    this.startDrag, cursor,
+                    2,
+                    '#000000',
+                    [0.2, 0.07],
+                );
+            }
         }
 
         handleDragStart(position: Vec2) {
@@ -925,9 +945,7 @@ export namespace Mechanics {
 
 
             // select the body
-            const body = this.bodies.findIndex((a) => {
-                return Plane.VecDist(position, a) < this.options.bodyRadius * 2;
-            });
+            const body = this.findBody(position);
             if (body == -1) {
                 return;
             }
@@ -1005,6 +1023,7 @@ export namespace Mechanics {
             }
         }
 
+
         /**
          * Computes array and the connectionLookup dictionary
          * @private
@@ -1026,6 +1045,12 @@ export namespace Mechanics {
                 connectionLookup.push(lookup);
             }
             this.connectionLookup = connectionLookup;
+        }
+
+        private findBody(position: Vec2): number {
+            return this.bodies.findIndex((a) => {
+                return Plane.VecDist(position, a) < this.options.bodyRadius * 2;
+            });
         }
 
         start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
@@ -1117,6 +1142,20 @@ export namespace Mechanics {
 
                 this.bodies[i] = newPos;
                 this.bodyVelocities[i] = newVel;
+            }
+
+
+            // change cursor, this might not need to be this fast
+            if (this.startDrag == null) {
+                const position = parent.inputs.cursor.value();
+                if (position !== null) {
+                    const body = this.findBody(position);
+                    if (body == -1) {
+                        parent.cursor.changeStyle(CursorStyle.DEFAULT);
+                    } else {
+                        parent.cursor.changeStyle(CursorStyle.POINTER);
+                    }
+                }
             }
         }
 

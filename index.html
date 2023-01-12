@@ -27,12 +27,15 @@
 
         #sims > div {
             margin: 2rem 1rem;
-            max-width: 700px;
+            max-width: 400px;
             width: 100%;
         }
 
         #sims a {
             display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         #sims > div > div {
@@ -69,6 +72,7 @@
 
 <div>
     <h1 class="st-text st-text--title">Troppydash's Simulations</h1>
+    <h6 class="st-text">Visit <a href="https://github.com/troppydash/tdsim">the source code</a></h6>
     <img src="/canvas/tdsim.ico" width="128"/>
 </div>
 

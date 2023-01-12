@@ -58,30 +58,18 @@ export namespace Primitives {
     }
 
 
-    export function DrawCircle(
-        parent: ICanvas, ctx: CanvasRenderingContext2D,
-        at: Vec2,
-        radius: number,
-        color: string = '#000'
-    ) {
-        ctx.fillStyle = color;
-
-        ctx.beginPath();
-        ctx.arc(...parent.localToWorld(at), parent.localToWorldScalar(radius), 0, 2 * Math.PI);
-        ctx.fill();
-    }
-
-
     export function drawHollowCircle(
         ctx: CanvasRenderingContext2D,
         at: Vec2,
         radius: number,
+        thickness: number,
         color: string
     ) {
         ctx.beginPath();
         ctx.arc(at[0], at[1], radius, 0, 2 * Math.PI);
         ctx.fillStyle = "transparent";
         ctx.strokeStyle = color;
+        ctx.lineWidth = thickness
         ctx.stroke();
     }
 
@@ -94,6 +82,30 @@ export namespace Primitives {
         ctx.beginPath();
         ctx.arc(...at, radius, 0, 2 * Math.PI);
         ctx.fillStyle = color;
+        ctx.fill();
+    }
+
+    export function DrawHollowCircle(
+        parent: ICanvas,
+        ctx: CanvasRenderingContext2D,
+        at: Vec2,
+        radius: number,
+        thickness: number,
+        color: string,
+    ) {
+        drawHollowCircle(ctx, parent.localToWorld(at), parent.localToWorldScalar(radius), parent.localToWorldScalar(thickness), color);
+    }
+
+    export function DrawCircle(
+        parent: ICanvas, ctx: CanvasRenderingContext2D,
+        at: Vec2,
+        radius: number,
+        color: string = '#000'
+    ) {
+        ctx.fillStyle = color;
+
+        ctx.beginPath();
+        ctx.arc(...parent.localToWorld(at), parent.localToWorldScalar(radius), 0, 2 * Math.PI);
         ctx.fill();
     }
 
@@ -112,5 +124,25 @@ export namespace Primitives {
         ctx.strokeStyle = color;
         ctx.lineWidth = lineWidth;
         ctx.stroke();
+    }
+
+    export function DrawDashedLine(
+        parent: ICanvas,
+        ctx: CanvasRenderingContext2D,
+        from: Vec2,
+        to: Vec2,
+        lineWidth: number,
+        color: string,
+        segments: Vec2,
+    )  {
+        ctx.beginPath();
+        ctx.setLineDash(segments.map(parent.localToWorldScalar.bind(parent)));
+        ctx.moveTo(...parent.localToWorld(from));
+        ctx.lineTo(...parent.localToWorld(to));
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+        ctx.setLineDash([]);
     }
 }

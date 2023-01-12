@@ -18,11 +18,26 @@
         html, body {
             margin: 0;
         }
+
+        .legend {
+            position:absolute;
+            bottom: 0;
+            right: 0;
+            padding: 1rem;
+            width: 300px;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
 
 <canvas id="root"></canvas>
+<div class="legend">
+    <h2>Interactivity Tutorial</h2>
+    <p>Click a node to toggle it between being fixed (solid circle) and being dynamic (hollow circle)</p>
+    <p>Click and drag a node to move it</p>
+    <p>Click on an empty space, drag, then release will cut the connections during the drag</p>
+</div>
 
 <script type="module">
     import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
@@ -30,6 +45,7 @@
     import {Mechanics} from "../../build/tdsim/sims/objects/physical.js";
     import {Range} from "../../build/tdsim/computation/vector.js";
     import {TDTimer} from "../../build/tdsim/sims/objects/fundamental.js";
+    import {TDText} from "../../build/tdsim/canvas/drawers/basics.js";
 
     async function main() {
         // create canvas
@@ -40,13 +56,13 @@
                     update: 360,
                 },
                 attachments: {
-                    axis: true,
+                    axis: false,
                     counter: true,
-                    labels: true
+                    labels: false
                 },
                 region: {
-                    right: 0.8,
-                    top: 0.6,
+                    right: 1,
+                    top: 1,
                     scale: 80
                 },
                 size: {
@@ -71,14 +87,16 @@
             //     }
             // );
             // cvs.addElement(chain);
+            const anchor = cvs.anchor();
+            const area = cvs.drawableArea();
             const timer = new TDTimer(
-                [0, 0]
+                [anchor[0] + area[0] / 2 - 1.5, anchor[1] + area[1] - 1]
             );
             cvs.addElement(timer);
 
             const curtain = Mechanics.Cloth.curtain(
-                Range.linspace(0, 12, 61),
-                Range.linspace(6, 2, 10),
+                Range.linspace(3, 15, 61),
+                Range.linspace(8, 4, 10),
                 {
                     dampening: 6,
                     bodyRadius: 0.05,
