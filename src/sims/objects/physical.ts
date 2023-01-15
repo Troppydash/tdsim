@@ -513,6 +513,7 @@ export namespace Fields {
 
     }
 
+    // scalar field, time independent
     export class ScalarFieldIndependent extends ScalarField {
         constructor(
             sf: ScalarFunction,
@@ -534,6 +535,32 @@ export namespace Fields {
 
             super.update(parent, ctx, dt);
         }
+    }
+
+
+    export type VectorFunction = (vec: Vec2) => Vec2;
+
+    interface VectorFieldOptions {
+        location: Vec2;  // bottom left
+        size: Vec2;
+        density: Vec2;
+        scale: Vec2;
+    }
+
+    export class VectorField extends TDElement {
+        constructor() {
+            super();
+        }
+    }
+
+    export class VectorStreamLines extends TDElement {
+
+    }
+
+
+    // complex hue field and winding numbers (complex solver)
+    export class ComplexHueField extends TDElement {
+
     }
 
 }
