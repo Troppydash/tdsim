@@ -1,5 +1,6 @@
-import {Vec2} from "../../computation/vector.js";
+import {Plane, Vec2} from "../../computation/vector.js";
 import {ICanvas, IElement} from "../canvas.js";
+import {Primitives} from "./mechanics.js";
 
 export class TDElement implements IElement {
     render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
@@ -108,5 +109,58 @@ export class TDFPSClock extends TDElement {
 
     update(parent, ctx, dt) {
         this.uc += 1;
+    }
+}
+
+interface VectorOptions {
+    readonly start: Vec2;
+    readonly end: Vec2;
+    readonly lineWidth: number;
+    readonly headProportion?: number;
+    readonly color: string;
+}
+
+/**
+ * Component to draw an arrow with an arrow head, wraps the Primitive.DrawVector function
+ *
+ * @example
+ * const arrow = new TDArrow({
+ *      start: [0, 0],
+ *      end: [1, 1]
+ * });
+ */
+export class TDArrow extends TDElement {
+    readonly options: VectorOptions = {
+        start: [0, 0],
+        end: [0, 0],
+        lineWidth: 0.05,
+        headProportion: 0.1,
+        color: '#000000'
+    };
+
+    private readonly headWidth: number;
+
+
+    constructor(
+        options: Partial<VectorOptions>
+    ) {
+        super();
+
+        this.options = {...this.options, ...options};
+        this.headWidth = Plane.VecDist(this.options.start, this.options.end) * this.options.headProportion;
+    }
+
+    render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        const {start, end, lineWidth, color} = this.options;
+
+        Primitives.DrawVector(
+            parent,
+            ctx,
+            start,
+            end,
+            lineWidth,
+            this.headWidth,
+            color
+        );
     }
 }

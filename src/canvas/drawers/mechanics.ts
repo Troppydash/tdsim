@@ -1,7 +1,9 @@
 import {Plane, Vec2} from "../../computation/vector.js";
 import {ICanvas} from "../canvas.js";
 
-// Primitives
+/**
+ * Primitives contains
+ */
 export namespace Primitives {
     interface SpringAttr {
         A: number; // Amplitude
@@ -144,5 +146,103 @@ export namespace Primitives {
         ctx.lineWidth = lineWidth;
         ctx.stroke();
         ctx.setLineDash([]);
+    }
+
+
+    export function DrawColoredLine(
+        parent: ICanvas,
+        ctx: CanvasRenderingContext2D,
+        points: Vec2[],
+        color: string[],
+        lineWidth: number,
+    ) {
+        ctx.lineWidth = parent.localToWorldScalar(lineWidth);
+
+        ctx.beginPath();
+        ctx.moveTo(...parent.localToWorld(points[0]));
+        for (const [index, point] of points.slice(1).entries()) {
+            ctx.strokeStyle = color[index];
+            ctx.lineTo(...parent.localToWorld(point));
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(...parent.localToWorld(point))
+        }
+
+        ctx.stroke();
+    }
+
+    export function drawVector(
+        ctx: CanvasRenderingContext2D,
+        start: Vec2,
+        end: Vec2,
+        lineWidth: number,
+        headWidth: number,
+        color: string
+    ) {
+        ctx.lineWidth = lineWidth;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+
+        // find the vector from end to start, scaled to headWidth
+        const dir = Plane.VecReMag(Plane.VecSubV(start, end), headWidth);
+        const base = Plane.VecAddV(end, dir);
+
+        // draw arrow from start to end
+        ctx.beginPath();
+        ctx.moveTo(...start);
+        ctx.lineTo(...base);
+        ctx.stroke();
+
+        const normal = Plane.VecMulC(Plane.VecRotate(0.5 * Math.PI, dir), 1/2);
+        const left = Plane.VecAddV(base, normal);
+        const right = Plane.VecSubV(base, normal);
+
+        // draw arrow head
+        ctx.moveTo(...end);
+        ctx.lineTo(...left);
+        ctx.lineTo(...right);
+        ctx.lineTo(...end);
+        ctx.fill();
+    }
+
+    export function DrawVector(
+        parent: ICanvas,
+        ctx: CanvasRenderingContext2D,
+        start: Vec2,
+        end: Vec2,
+        lineWidth: number,
+        headWidth: number,
+        color: string
+    ) {
+        drawVector(
+            ctx,
+            parent.localToWorld(start),
+            parent.localToWorld(end),
+            parent.localToWorldScalar(lineWidth),
+            parent.localToWorldScalar(headWidth),
+            color
+        );
+    }
+
+    export function DrawVectorMaths(
+        parent: ICanvas,
+        ctx: CanvasRenderingContext2D,
+        origin: Vec2,
+        direction: Vec2,
+        lineWidth: number,
+        headProportion: number,
+        color: string
+    ) {
+        const headWidth = Plane.VecMag(direction) * headProportion;
+
+        drawVector(
+            ctx,
+            parent.localToWorld(origin),
+            parent.localToWorld(Plane.VecAddV(origin, direction)),
+            parent.localToWorldScalar(lineWidth),
+            parent.localToWorldScalar(headWidth),
+            color
+        );
     }
 }

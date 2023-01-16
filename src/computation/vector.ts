@@ -2,6 +2,9 @@ export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
 export type VecN = Vec2 | Vec3 | number[];
 
+type Tuple<TItem, TLength extends number> = [TItem, ...TItem[]] & { length: TLength };
+export type Vec<N extends number> = Tuple<number, N>;
+
 export type Scalar = number;
 
 export type Complex = Vec2;
@@ -83,6 +86,12 @@ export namespace Plane {
         return [a[0] - b[0], a[1] - b[1]];
     }
 
+    /**
+     * VecRotate rotates the vector counter-clockwise around the origin
+     * @param rad
+     * @param vec
+     * @constructor
+     */
     export function VecRotate(rad: Scalar, vec: Vec2): Vec2 {
         return MatVec(MatRotate(rad), vec);
     }
@@ -140,6 +149,13 @@ export namespace Plane {
             radius * Math.cos(theta),
             radius * Math.sin(theta)
         ];
+    }
+
+
+    // border = [up down left right]
+    export function VecInside(vec: Vec2, border: Vec<4>) : boolean {
+        const [up, down, left, right] = border;
+        return vec[0] >= left && vec[1] <= right && vec[1] >= down && vec[1] <= up;
     }
 }
 
@@ -389,10 +405,10 @@ export class Range {
         return Range.of(list.length, step);
     }
 
-    static linspace(lower: number, upper: number, elements: number): Range {
-        const dx = (upper-lower) / (elements-1);
+    static linspace(lower: number, upper: number, items: number): Range {
+        const dx = (upper-lower) / (items-1);
         let range = [];
-        for (let i = 0; i < elements; ++i) {
+        for (let i = 0; i < items; ++i) {
             range.push(lower + dx * i);
         }
         return new Range(range);

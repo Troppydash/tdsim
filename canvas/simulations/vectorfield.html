@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Vector Fields</title>
+</head>
+<body>
+
+<canvas id="root">
+
+</canvas>
+
+
+<script type="module">
+    import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
+    import {Loader} from "../../build/tdsim/canvas/loader.js";
+    import {Fields} from "../../build/tdsim/sims/objects/physical.js";
+
+    async function main() {
+
+        const canvas = new TDCanvas(
+            document.getElementById('root'),
+            {
+                attachments: {
+                    counter: true,
+                    axis: true,
+                    labels: true
+                },
+                rate: {
+                    update: 30
+                }
+                // battery: {
+                //     newTicks: 20,
+                //     hibernation: true
+                // }
+            }
+        );
+
+        const loader = new Loader();
+        const controls = await loader.inject(canvas, cvs => {
+            // const vec = new TDArrow({
+            //     start: [0, 0],
+            //     end: [2, 2]
+            // });
+            // cvs.addElement(vec);
+            const vecfield = new Fields.VectorStreamLines(
+                ([x, y]) => [y, x],
+                {
+                    location: cvs.anchor(),
+                    size: cvs.drawableArea(),
+                    spawntime: 0.01,
+                    maxVelocity: 10,
+                    trailLength: 100
+                }
+            )
+
+            cvs.addElement(vecfield);
+        });
+    }
+
+    window.addEventListener('DOMContentLoaded', main);
+</script>
+
+</body>
+</html>

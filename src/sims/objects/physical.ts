@@ -1,7 +1,7 @@
 import {DynamicGraphs} from "../algos/graphing.js";
 import {BaseListElements, IBaseObject, TDBaseObject, Traceable} from "./fundamental.js";
 import {Binding} from "../../canvas/binding.js";
-import {Area, Plane, Range, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
+import {Area, Plane, Range, Vec, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
 import {ICanvas, TDCanvas} from "../../canvas/canvas.js";
 import {Primitives} from "../../canvas/drawers/mechanics.js";
 import {ContourMethods} from "../algos/contour.js";
@@ -333,7 +333,7 @@ export namespace Fields {
         export type CMap = (normVal: number) => Color;
 
         export function CMapInverse(cmap: CMap): CMap {
-            return value => cmap(1-value);
+            return value => cmap(1 - value);
         }
 
         function intensityCMap(value: number, R, G, B): Color {
@@ -540,20 +540,286 @@ export namespace Fields {
 
     export type VectorFunction = (vec: Vec2) => Vec2;
 
-    interface VectorFieldOptions {
-        location: Vec2;  // bottom left
-        size: Vec2;
-        density: Vec2;
-        scale: Vec2;
+    export interface VectorFieldOptions {
+        location: Vec2;  // bottom left local coordinate
+        size: Vec2;      // width and height of the graph
+        density: Vec2;   // the amount of pixels in one direction
+        scale: Vec2;     // compression ratio on the axis
+        origin: Vec2;    // the local coordinate for the origin of the scalar function
+
+        cmap: ColorMap.CMap;
     }
 
+    // Represents the vector field as a field of normalized arrows, magnitude displayed as the color from the ColorMap
     export class VectorField extends TDElement {
-        constructor() {
+        public readonly options: VectorFieldOptions = {
+            location: [0, 0],
+            size: [10, 6],
+            density: [20, 20],
+            scale: [1, 1],
+            origin: [0, 0],
+            cmap: ColorMap.Rainbow
+        }
+
+        // array of field normalized vectors
+        private scaledField: Vec2[];
+        // array of field magnitudes (color mapped)
+        private fieldMagnitudes: number[];
+        private fieldColors: string[];
+
+        // the smallest dx space
+        private gapSize: number;
+
+        constructor(
+            public readonly f: VectorFunction,
+            options: Partial<VectorFieldOptions>
+        ) {
             super();
+
+            this.options = {...this.options, ...options};
+        }
+
+        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            // calculate this.scaledField and this.fieldColors
+            this.scaledField = [];
+            this.fieldMagnitudes = [];
+            this.fieldColors = [];
+
+            const {location, size, density, origin, scale} = this.options;
+            const [dx, dy] = [size[0] / density[0], size[1] / density[1]];
+            this.gapSize = Math.min(dx, dy);
+
+            // use origin a
+            for (const [y, _] of Range.linspace(location[1], location[1] + size[1], density[1])) {
+                for (const [x, _] of Range.linspace(location[0], location[0] + size[0], density[0])) {
+
+                    const realX = (x - origin[0]) / scale[0];
+                    const realY = (y - origin[1]) / scale[1];
+
+                    const vec = this.f([realX, realY]);
+                    const magnitude = Plane.VecMag(vec);
+                    const normalizedVec = Plane.VecMulC(vec, this.gapSize / magnitude);
+
+                    this.scaledField.push(normalizedVec);
+                    this.fieldMagnitudes.push(magnitude);
+                }
+            }
+
+            // calculate color field
+            const max = Math.max(...this.fieldMagnitudes);
+            const min = Math.min(...this.fieldMagnitudes);
+
+            for (const magnitude of this.fieldMagnitudes) {
+                this.fieldColors.push(ColorMap.colorToHex(this.options.cmap((magnitude - min) / (max - min))));
+            }
+        }
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {size, location, density} = this.options;
+
+            const dx = size[0] / density[0];
+            const dy = size[1] / density[1];
+
+            for (const [y, yi] of Range.linspace(location[1], location[1] + size[1], density[1])) {
+                for (const [x, xi] of Range.linspace(location[0], location[0] + size[0], density[0])) {
+                    const i = yi * density[0] + xi;
+                    const color = this.fieldColors[i];
+                    const vec = this.scaledField[i];
+
+                    const position: Vec2 = [x, y];
+
+                    Primitives.DrawVectorMaths(
+                        parent,
+                        ctx,
+                        position,
+                        vec,
+                        0.07 * this.gapSize,
+                        0.3,
+                        color
+                    );
+                }
+            }
+
         }
     }
 
+
+    class StreamLine {
+        private trails: Vec2[];
+        private trailColors: string[];
+        private isDecay: boolean;
+        private counter: number;
+
+        constructor(
+            public position: Vec2,
+            public readonly trailLength: number = 100,
+        ) {
+            this.trails = [position];
+            this.trailColors = [];
+            this.isDecay = false;
+            this.counter = 0;
+        }
+
+
+        update(velocity: Vec2, color: string, dt: number) {
+            this.position = Plane.VecAddV(this.position, Plane.VecMulC(velocity, dt / Plane.VecMag(velocity)));
+
+            this.trails.push(this.position);
+            this.trailColors.push(color);
+        }
+
+        setDecay() {
+            this.isDecay = true;
+        }
+
+        shouldDecay() {
+            return this.isDecay || this.trails.length > this.trailLength;
+        }
+
+        decay(dt: number) {
+            this.trails.shift();
+            this.trailColors.shift();
+        }
+
+        shouldDiscard() {
+            return this.isDecay && this.trails.length === 0;
+        }
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            if (this.trails.length <= 1) {
+                return;
+            }
+
+            Primitives.DrawColoredLine(
+                parent,
+                ctx,
+                this.trails,
+                this.trailColors,
+                0.05,
+            );
+        }
+    }
+
+    interface VectorStreamLinesOptions {
+        spawntime: number;
+        trailLength: number;
+
+        maxVelocity: number;
+
+        cmap: ColorMap.CMap;
+        location: Vec2;  // bottom left local coordinate
+        size: Vec2;      // width and height of the graph
+        scale: Vec2;     // compression ratio on the axis
+        origin: Vec2;    // the local coordinate for the origin of the scalar function
+
+    }
+
     export class VectorStreamLines extends TDElement {
+        options: VectorStreamLinesOptions = {
+            location: [0, 0],
+            size: [10, 6],
+            scale: [1, 1],
+            origin: [0, 0],
+            cmap: ColorMap.Rainbow,
+            spawntime: 0.05,
+            trailLength: 100,
+            maxVelocity: 10,
+        }
+
+        streamlines: StreamLine[];
+        delta: number;
+
+        constructor(
+            public readonly f: VectorFunction,
+            options: Partial<VectorStreamLinesOptions>
+        ) {
+            super();
+
+            this.options = {...this.options, ...options};
+            this.streamlines = [];
+            this.delta = this.options.spawntime;  // immediately spawn
+        }
+
+        border(): Vec<4> {
+            const {location, size} = this.options;
+            return [
+                location[1] + size[1],
+                location[1],
+                location[0],
+                location[0] + size[0]
+            ];
+        }
+
+        localToCanvas(local: Vec2): Vec2 {
+            const {origin, scale} = this.options;
+
+            return [
+                (local[0] - origin[0]) / scale[0],
+                (local[1] - origin[1]) / scale[1],
+            ] as Vec2;
+        }
+
+        createStreamline() {
+            const {location, size, trailLength} = this.options;
+            // random position
+            const position: Vec2 = [
+                Math.random() * size[0] + location[0],
+                Math.random() * size[1] + location[1]
+            ];
+
+            this.streamlines.push(new StreamLine(position, trailLength));
+        }
+
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {spawntime, cmap, maxVelocity} = this.options;
+
+            this.delta += dt;
+
+            // check to spawn a new streamline
+            while (this.delta > spawntime) {
+                this.delta -= spawntime;
+
+                this.createStreamline();
+            }
+
+            // update streamlines, remove if expired
+            let newStreamlines = [];
+            for (const [index, streamline] of this.streamlines.entries()) {
+                if (streamline.shouldDiscard()) {
+                    continue;
+                }
+
+                if (streamline.shouldDecay()) {
+                    streamline.setDecay();
+                    streamline.decay(dt);
+                } else {
+                    if (!Plane.VecInside(streamline.position, this.border())) {
+                        streamline.setDecay();
+                    }
+
+                    const velocity = this.f(this.localToCanvas(streamline.position));
+                    const mag = Plane.VecMag(velocity);
+                    streamline.update(
+                        velocity,
+                        ColorMap.colorToHex(cmap(Math.min(mag, maxVelocity) / maxVelocity)),
+                        dt
+                    );
+                }
+
+                newStreamlines.push(streamline);
+            }
+
+            this.streamlines = newStreamlines;
+        }
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+
+            // render all streamlines
+            for (const streamline of this.streamlines) {
+                streamline.render(parent, ctx);
+            }
+
+        }
 
     }
 
@@ -937,7 +1203,7 @@ export namespace Mechanics {
                 if (stress) {
                     const stretch = Math.abs(Plane.VecDist(from, to) - this.stringEquilibriumLengths[index]);
                     const stretchNormalized = Math.min(maxStretch, stretch) / maxStretch;
-                    color = ColorMap.colorToHex( this.cmap(stretchNormalized));
+                    color = ColorMap.colorToHex(this.cmap(stretchNormalized));
                 }
 
                 Primitives.DrawLine(parent, ctx, from, to, stringWidth, color);
@@ -949,7 +1215,7 @@ export namespace Mechanics {
                 if (this.fixed.includes(index)) {
                     Primitives.DrawCircle(parent, ctx, body, bodyRadius, '#000000');
                 } else {
-                    Primitives.DrawHollowCircle(parent, ctx, body, bodyRadius, 0.02,'#000000');
+                    Primitives.DrawHollowCircle(parent, ctx, body, bodyRadius, 0.02, '#000000');
                 }
             }
 
