@@ -1,7 +1,7 @@
 import {DynamicGraphs} from "../algos/graphing.js";
 import {BaseListElements, IBaseObject, TDBaseObject, Traceable} from "./fundamental.js";
 import {Binding} from "../../canvas/binding.js";
-import {Area, Plane, Range, Vec, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
+import {Area, Direction, Plane, Range, Vec, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
 import {ICanvas, TDCanvas} from "../../canvas/canvas.js";
 import {Batched, Primitives} from "../../canvas/drawers/mechanics.js";
 import {ContourMethods} from "../algos/contour.js";
@@ -845,6 +845,122 @@ export namespace Fields {
 
     }
 
+
+    // fluid simulation
+    interface FluidFieldOptions {
+        fieldSize: Vec2;  // number of cells [width, height]
+        cellSize: Vec2;   // cell size [width, height]
+    }
+
+    const enum CellType {
+        FLUID = 1,
+        WALL = 0
+    }
+
+    export class FluidField extends TDElement {
+        public readonly options: FluidFieldOptions = {
+            fieldSize: [6, 6],
+            cellSize: [0.1, 0.1]
+        }
+
+        // velocity field, staggered, anchored top left, indexed top left, one layer of extra padding on all sides
+        private u: Vec2[];
+
+        // contains cell type information, same extra padding
+        private cells: CellType[];
+
+        constructor(
+            options: Partial<FluidFieldOptions>
+        ) {
+            super();
+
+            this.options = {...this.options, ...options};
+            this.allocate();
+        }
+
+        private allocate() {
+
+        }
+
+        /// Step one ///
+        private applyForce(dt: number) {
+            const g = -9.81;
+
+            // apply gravity
+            this.u = this.u.map(row => row.map(vel => Plane.VecAddV(vel, [0, g * dt])));
+        }
+
+        /// Step two ///
+        private boundaries(position: Vec2): Direction[] {
+            let directions = [];
+
+            const [x, y] = position;
+            if (x === 0) {
+                directions.push(Direction.LEFT);
+            }
+
+            if (x === this.size[0] - 1) {
+                directions.push(Direction.RIGHT);
+            }
+
+            if (y === 0) {
+                directions.push(Direction.UP);
+            }
+
+            if (y === this.size[1] - 1) {
+                directions.push(Direction.DOWN);
+            }
+
+            return directions;
+        }
+
+        private divergence(position: Vec2): number {
+            const boundaries = this.boundaries(position);
+
+            const [x, y] = position;
+
+            // negative of the current cell inflows
+            let div = -this.u[y][x][0] + this.u[y][x][0];
+
+            // add down inflow
+            if (!boundaries.includes(Direction.DOWN)) {
+                div -= this.u[y + 1][x][1];
+            }
+
+            // add right inflow
+            if (!boundaries.includes(Direction.RIGHT)) {
+                div += this.u[y][x + 1][0];
+            }
+
+            return div;
+        }
+
+        private forceIncompressible() {
+            const boundaries = this.boundaries(position);
+
+            const div = this.div
+        }
+
+        // Advance a tick in the fluid simulation
+        private tick(dt: number) {
+            // diffusion/viscosity
+
+            // apply forces
+            this.applyForce(dt);
+
+            // in-compressibility condition
+
+
+            // advection
+
+
+        }
+
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+
+        }
+    }
 }
 
 export namespace Mechanics {

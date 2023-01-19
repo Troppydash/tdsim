@@ -14,6 +14,14 @@ export type Mat2 = [
     number, number
 ];
 
+
+export const enum Direction {
+    UP = 1,
+    DOWN = 1,
+    LEFT = 1,
+    RIGHT = 1
+}
+
 // https://github.com/microsoft/TypeScript/issues/26223#issuecomment-410642988
 export interface Mat<R extends number = 4, C extends number = 4> {
     length: R,
