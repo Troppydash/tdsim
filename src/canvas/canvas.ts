@@ -29,6 +29,9 @@ export interface CanvasOptions {
     battery: {
         hibernation: boolean;
         newTicks: number;
+    };
+    visuals: {
+        clearColor: string;
     }
 }
 
@@ -116,6 +119,9 @@ export class TDCanvas implements ICanvas {
         battery: {
             hibernation: false,
             newTicks: 2
+        },
+        visuals: {
+            clearColor: '#ffffff'
         }
     }
 
@@ -391,7 +397,10 @@ export class TDCanvas implements ICanvas {
         }
 
         // clear canvas
-        this.ctx.clearRect(0, 0, this.options.size.width, this.options.size.height);
+        const oldStyle = this.ctx.fillStyle;
+        this.ctx.fillStyle = this.options.visuals.clearColor;
+        this.ctx.fillRect(0, 0, this.options.size.width, this.options.size.height);
+        this.ctx.fillStyle = oldStyle;
 
         // call renders
         for (let i = 0; i < this.elements.length; ++i) {

@@ -164,3 +164,31 @@ export class TDArrow extends TDElement {
         );
     }
 }
+
+export class TDOpacityMask extends TDElement {
+    constructor(
+        private element: IElement,
+        public opacity: number = 0.75,
+    ) {
+        super();
+    }
+
+    start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+        this.element.start(parent, ctx);
+    }
+
+    update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        this.element.update(parent, ctx, dt);
+    }
+
+    render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+        const old = ctx.globalAlpha;
+        ctx.globalAlpha = this.opacity;
+        this.element.render(parent, ctx, dt);
+        ctx.globalAlpha = old;
+    }
+
+    stop(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+        this.element.stop(parent, ctx);
+    }
+}

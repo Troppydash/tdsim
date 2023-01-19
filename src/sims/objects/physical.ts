@@ -3,7 +3,7 @@ import {BaseListElements, IBaseObject, TDBaseObject, Traceable} from "./fundamen
 import {Binding} from "../../canvas/binding.js";
 import {Area, Plane, Range, Vec, Vec2, Vec3, VecN, Volume, VSpace} from "../../computation/vector.js";
 import {ICanvas, TDCanvas} from "../../canvas/canvas.js";
-import {Primitives} from "../../canvas/drawers/mechanics.js";
+import {Batched, Primitives} from "../../canvas/drawers/mechanics.js";
 import {ContourMethods} from "../algos/contour.js";
 import {PhysicsSolvers} from "../../computation/diffeq.js";
 import {TDElement} from "../../canvas/drawers/basics.js";
@@ -645,8 +645,8 @@ export namespace Fields {
 
 
     class StreamLine {
-        private trails: Vec2[];
-        private trailColors: string[];
+        public trails: Vec2[];
+        public trailColors: string[];
         private isDecay: boolean;
         private counter: number;
 
@@ -686,23 +686,24 @@ export namespace Fields {
         }
 
         render(parent: ICanvas, ctx: CanvasRenderingContext2D) {
-            if (this.trails.length <= 1) {
-                return;
-            }
-
-            Primitives.DrawColoredLine(
-                parent,
-                ctx,
-                this.trails,
-                this.trailColors,
-                0.05,
-            );
+            // if (this.trails.length <= 1) {
+            //     return;
+            // }
+            //
+            // Primitives.DrawColoredLine(
+            //     parent,
+            //     ctx,
+            //     this.trails,
+            //     this.trailColors,
+            //     0.05,
+            // );
         }
     }
 
     interface VectorStreamLinesOptions {
         spawntime: number;
         trailLength: number;
+        trailWidth: number;
 
         maxVelocity: number;
 
@@ -723,6 +724,7 @@ export namespace Fields {
             cmap: ColorMap.Rainbow,
             spawntime: 0.05,
             trailLength: 100,
+            trailWidth: 0.02,
             maxVelocity: 10,
         }
 
@@ -815,10 +817,24 @@ export namespace Fields {
         render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
 
             // render all streamlines
-            for (const streamline of this.streamlines) {
-                streamline.render(parent, ctx);
-            }
+            // for (const streamline of this.streamlines) {
+            //     streamline.render(parent, ctx);
+            // }
 
+
+            // batch calls
+            const parameters = this.streamlines.map((sl) => [
+                parent,
+                ctx,
+                sl.trails,
+                sl.trailColors,
+                this.options.trailWidth
+            ]);
+
+            Batched.DrawBatched(
+                Batched.DrawColoredLine,
+                parameters
+            );
         }
 
     }

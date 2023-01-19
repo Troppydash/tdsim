@@ -15,7 +15,7 @@ export namespace Primitives {
         attr: SpringAttr,
         start: Vec2, end: Vec2
     ) {
-        const { A, W, C } = attr;
+        const {A, W, C} = attr;
         const towards = Plane.VecSubV(end, start);
         const d = Plane.VecMag(towards);
         const ang = Math.atan2(towards[1], towards[0]);
@@ -136,7 +136,7 @@ export namespace Primitives {
         lineWidth: number,
         color: string,
         segments: Vec2,
-    )  {
+    ) {
         ctx.beginPath();
         ctx.setLineDash(segments.map(parent.localToWorldScalar.bind(parent)));
         ctx.moveTo(...parent.localToWorld(from));
@@ -163,9 +163,6 @@ export namespace Primitives {
         for (const [index, point] of points.slice(1).entries()) {
             ctx.strokeStyle = color[index];
             ctx.lineTo(...parent.localToWorld(point));
-            ctx.stroke();
-
-            ctx.beginPath();
             ctx.moveTo(...parent.localToWorld(point))
         }
 
@@ -194,7 +191,7 @@ export namespace Primitives {
         ctx.lineTo(...base);
         ctx.stroke();
 
-        const normal = Plane.VecMulC(Plane.VecRotate(0.5 * Math.PI, dir), 1/2);
+        const normal = Plane.VecMulC(Plane.VecRotate(0.5 * Math.PI, dir), 1 / 2);
         const left = Plane.VecAddV(base, normal);
         const right = Plane.VecSubV(base, normal);
 
@@ -244,5 +241,43 @@ export namespace Primitives {
             parent.localToWorldScalar(headWidth),
             color
         );
+    }
+}
+
+export namespace Batched {
+    export function DrawBatched<P extends any[]>(
+        draw: (...args: P) => void,
+        parameters: P[]
+    ) {
+        for (const param of parameters) {
+            draw(...param);
+        }
+    }
+
+
+    export function DrawColoredLine(
+        parent: ICanvas,
+        ctx: CanvasRenderingContext2D,
+        points: Vec2[],
+        color: string[],
+        lineWidth: number,
+    ) {
+        if (points.length === 0) {
+            return;
+        }
+
+        if (points.length - color.length !== 1) {
+            console.error('length error on drawing colored lines');
+            debugger;
+        }
+
+        ctx.beginPath();
+        ctx.lineWidth = parent.localToWorldScalar(lineWidth);
+        ctx.strokeStyle = color[0];
+        ctx.moveTo(...parent.localToWorld(points[0]));
+        for (const [index, point] of points.slice(1).entries()) {
+            ctx.lineTo(...parent.localToWorld(point));
+        }
+        ctx.stroke();
     }
 }

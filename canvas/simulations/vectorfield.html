@@ -6,6 +6,16 @@
           content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Vector Fields</title>
+
+    <style>
+        #root {
+            display: block;
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
 </head>
 <body>
 
@@ -18,6 +28,7 @@
     import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
     import {Loader} from "../../build/tdsim/canvas/loader.js";
     import {Fields} from "../../build/tdsim/sims/objects/physical.js";
+    import {TDOpacityMask} from "../../build/tdsim/canvas/drawers/basics.js";
 
     async function main() {
 
@@ -26,11 +37,18 @@
             {
                 attachments: {
                     counter: true,
-                    axis: true,
-                    labels: true
+                    // axis: true,
+                    // labels: true
                 },
                 rate: {
-                    update: 30
+                    update: 30,
+                },
+                visuals: {
+                    clearColor: '#1f1f1f'
+                },
+                size: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
                 }
                 // battery: {
                 //     newTicks: 20,
@@ -46,18 +64,32 @@
             //     end: [2, 2]
             // });
             // cvs.addElement(vec);
-            const vecfield = new Fields.VectorStreamLines(
-                ([x, y]) => [y, x],
+            const func = ([x, y]) => [Math.sin((x+y)/5), Math.cos((x-y)/5)];
+            const vecfieldsl = new Fields.VectorStreamLines(
+                func,
                 {
                     location: cvs.anchor(),
                     size: cvs.drawableArea(),
-                    spawntime: 0.01,
-                    maxVelocity: 10,
-                    trailLength: 100
+                    spawntime: 0.005,
+                    maxVelocity: 1.5,
+                    trailLength: 75,
+                    trailWidth: 0.04
                 }
             )
+            cvs.addElement(vecfieldsl, 'vecfieldsl', 0);
 
-            cvs.addElement(vecfield);
+            const vecfield = new TDOpacityMask(
+                new Fields.VectorField(
+                    func,
+                    {
+                        location: cvs.anchor(),
+                        size: cvs.drawableArea()
+                    }
+                ),
+                0.2
+            );
+
+            cvs.addElement(vecfield, 'vecfield', 1);
         });
     }
 
