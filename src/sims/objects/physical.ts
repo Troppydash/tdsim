@@ -886,7 +886,7 @@ export namespace Fields {
         return shuffle(arr);
     }
 
-    function arrayMin(array: number[]): number {
+    function arrayMin(array: number[] | Float64Array): number {
         let curr = Number.MAX_VALUE;
         let i = 0;
         while (i < array.length) {
@@ -898,7 +898,7 @@ export namespace Fields {
         return curr;
     }
 
-    function arrayMax(array: number[]): number {
+    function arrayMax(array: number[] | Float64Array): number {
         let curr = Number.MIN_VALUE;
         let i = 0;
         while (i < array.length) {
@@ -981,16 +981,19 @@ export namespace Fields {
 
         // velocity field, staggered, anchored top left, indexed top left, padded
         private u: Float64Array;
+        private u_buffer: Float64Array;
         private v: Float64Array;
+        private v_buffer: Float64Array;
 
         // contains cell type information, padded
         private cells: Uint8Array;
 
         // density information, padded
         private density: Float64Array;
+        private density_buffer: Float64Array;
 
         // pressure information, non-padded
-        private pressure: number[];
+        private pressure: Float64Array;
 
         // color map of the pressure field
         private cmap: ColorMap.CMap = ColorMap.Rainbow;
@@ -1019,11 +1022,14 @@ export namespace Fields {
 
             // create velocity field
             this.u = new Float64Array(arrayOf(this.size_padded(), () => 0));
+            this.u_buffer = new Float64Array(arrayOf(this.size_padded(), () => 0));
             this.v = new Float64Array(arrayOf(this.size_padded(), () => 0));
+            this.v_buffer = new Float64Array(arrayOf(this.size_padded(), () => 0));
             this.cells = new Uint8Array(arrayOf(this.size_padded(), () => CellType.FLUID));
 
-            this.pressure = arrayOf(this.size(), () => 0);
+            this.pressure = new Float64Array(arrayOf(this.size(), () => 0));
             this.density = new Float64Array(arrayOf(this.size_padded(), () => 0));
+            this.density_buffer = new Float64Array(arrayOf(this.size_padded(), () => 0));
 
             this.drawers = {};
             if (drawModes.includes(FluidDrawMode.PRESSURE)) {
@@ -1089,10 +1095,15 @@ export namespace Fields {
 
         private unpad(array: Float64Array): number[] {
             let output = [];
+
+            let z = this.delta_row_padded;
             for (let j = 0; j < this.area[1]; ++j) {
+                z += 1;
                 for (let i = 0; i < this.area[0]; ++i) {
-                    output.push(array[this.index_padded(i, j)])
+                    output.push(array[z])
+                    z += 1;
                 }
+                z += 1;
             }
             return output;
         }
@@ -1159,62 +1170,62 @@ export namespace Fields {
 
             const delta = this.delta_row_padded;
 
-            // for (let j = 0; j < this.area[1]; ++j) {
-            //     for (let i = 0; i < this.area[0]; ++i) {
-            const indices = shuffledIndex(this.area[0] * this.area[1]);
-            for (let z = 0; z < indices.length; ++z) {
-                const k = indices[z];
+            for (let j = 0; j < this.area[1]; ++j) {
+                for (let i = 0; i < this.area[0]; ++i) {
+                    // const indices = shuffledIndex(this.area[0] * this.area[1]);
+                    // for (let z = 0; z < indices.length; ++z) {
+                    //     const k = indices[z];
+                    //
+                    //     const i = k % this.area[0];
+                    //     const j = (k / this.area[0]) >> 0;  // Math.floor(k / this.area[0])
 
-                const i = k % this.area[0];
-                const j = (k / this.area[0]) >> 0;  // Math.floor(k / this.area[0])
+                    // caching these for performance
+                    const index = this.index_padded(i, j);
 
-                // caching these for performance
-                const index = this.index_padded(i, j);
-
-                // const div = O * this.divergence(i, j);
-                const div = O * (this.v[index]  // i,j
-                    - this.u[index]  // i,j
-                    - this.v[index + delta]  // i,j+1
-                    + this.u[index + 1]);  // i+1,j
+                    // const div = O * this.divergence(i, j);
+                    const div = O * (this.v[index]  // i,j
+                        - this.u[index]  // i,j
+                        - this.v[index + delta]  // i,j+1
+                        + this.u[index + 1]);  // i+1,j
 
 
-                // const cell = this.cell(i, j);
-                const cell = [
-                    // i,j-1
-                    this.cells[index - delta],
-                    // i-1,j
-                    this.cells[index - 1],
+                    // const cell = this.cell(i, j);
+                    const cell = [
+                        // i,j-1
+                        this.cells[index - delta],
+                        // i-1,j
+                        this.cells[index - 1],
+                        // i,j+1
+                        this.cells[index + delta],
+                        // i+1,j
+                        this.cells[index + 1],
+                    ];
+                    const s = cell[0] + cell[1] + cell[2] + cell[3];
+
+                    // enclosed
+                    if (s === 0) {
+                        continue;
+                    }
+
+                    // [top left down right]
+                    // i,j
+                    this.v[index] -= cell[0] * div / s;
+                    this.u[index] += cell[1] * div / s;
                     // i,j+1
-                    this.cells[index + delta],
+                    this.v[index + delta] += cell[2] * div / s;
                     // i+1,j
-                    this.cells[index + 1],
-                ];
-                const s = cell[0] + cell[1] + cell[2] + cell[3];
+                    this.u[index + 1] -= cell[3] * div / s;
 
-                // enclosed
-                if (s === 0) {
-                    continue;
+
+                    // update pressure
+                    this.pressure[this.index(i, j)] += (div / s) * (rho * h / dt);
                 }
-
-                // [top left down right]
-                // i,j
-                this.v[index] -= cell[0] * div / s;
-                this.u[index] += cell[1] * div / s;
-                // i,j+1
-                this.v[index + delta] += cell[2] * div / s;
-                // i+1,j
-                this.u[index + 1] -= cell[3] * div / s;
-
-
-                // update pressure
-                this.pressure[this.index(i, j)] += (div / s) * (rho * h / dt);
-                // }
             }
         }
 
         private moveDensity(dt: number) {
             // same as moveVelocity, but uses the center node instead
-            let new_density = new Float64Array(this.density);
+            const new_density = this.density_buffer;
 
             const delta = this.delta_row_padded;
 
@@ -1250,10 +1261,8 @@ export namespace Fields {
                     // }
 
                     // distance to top left point
-                    const [x, y] = [
-                        origin[0] - origin_i + 0.5,
-                        origin[1] - origin_j + 0.5,
-                    ];
+                    const x = origin[0] - origin_i + 0.5;
+                    const y = origin[1] - origin_j + 0.5;
 
                     // linear interpolate
                     const origin_index = this.index_padded(origin_i, origin_j);
@@ -1275,12 +1284,13 @@ export namespace Fields {
                 }
             }
 
-            this.density = new_density;
+            // copy buffer
+            this.density.set(this.density_buffer);
         }
 
         private moveVelocity(dt: number) {
-            let new_u = new Float64Array(this.u);
-            let new_v = new Float64Array(this.v);
+            let new_u = this.u_buffer;
+            let new_v = this.v_buffer;
 
             const delta = this.delta_row_padded;
 
@@ -1385,13 +1395,13 @@ export namespace Fields {
                             const y = origin[1] - origin_j;
 
                             // i-1,j
-                            const a = this.v[origin_index-1];
+                            const a = this.v[origin_index - 1];
                             // i,j
                             const b = this.v[origin_index];
                             // i-1,j+1
-                            const c = this.v[origin_index-1+delta];
+                            const c = this.v[origin_index - 1 + delta];
                             // i,j+1
-                            const d = this.v[origin_index+delta];
+                            const d = this.v[origin_index + delta];
 
                             const v1 = a + x * (b - a);
                             const v2 = c + x * (d - c);
@@ -1403,8 +1413,8 @@ export namespace Fields {
                 }
             }
 
-            this.u = new_u;
-            this.v = new_v;
+            this.u.set(this.u_buffer);
+            this.v.set(this.v_buffer);
         }
 
         // Advance a tick in the fluid simulation
@@ -1416,7 +1426,7 @@ export namespace Fields {
             // this.applyForce(dt);
 
             // in-compressibility condition
-            const n = 6;
+            const n = 4;
             for (let i = 0; i < n; ++i) {
                 this.forceIncompressible(dt);
                 this.debugNaN();
