@@ -82,8 +82,9 @@
                 return null;
             }
 
+            const height = 50;
             const sphere = (i, j) => {
-                if ((i - 43) ** 2 + (j - 43) ** 2 < 7 ** 2) {
+                if ((i - 100) ** 2 + (j - height-3) ** 2 <= 11 ** 2) {
                     return {
                         cell: Fields.CellType.WALL,
                         u: 0,
@@ -95,17 +96,17 @@
 
             const turbine = ({u, density}) => {
                 const width = 9;
-                for (let j = 40; j < 40 + width; ++j) {
-                    u[field.index_padded(1, j)] = 100;
+                for (let j = height; j < height + width; ++j) {
                     u[field.index_padded(2, j)] = 100;
                     u[field.index_padded(3, j)] = 100;
                     u[field.index_padded(4, j)] = 100;
-                    u[field.index_padded(5, j)] = 100;
-                    density[field.index_padded(0, j)] = 1;
+                    density[field.index_padded(2, j)] = 1;
+                    density[field.index_padded(3, j)] = 1;
+                    density[field.index_padded(4, j)] = 1;
                 }
             }
 
-            // field.addObject(Fields.FluidFieldObjects.walls);
+            field.addObject(Fields.FluidFieldObjects.walls);
             field.addObject(sphere);
 
             field.addPersistentObject(turbine);

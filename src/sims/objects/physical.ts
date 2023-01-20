@@ -995,6 +995,9 @@ export namespace Fields {
         // pressure information, non-padded
         private pressure: Float64Array;
 
+        // an array of deltas to traverse 2d grid arrays
+        private delta_padded: Uint32Array;
+
         // color map of the pressure field
         private cmap: ColorMap.CMap = ColorMap.Rainbow;
         // color map of the density field
@@ -1040,6 +1043,18 @@ export namespace Fields {
             }
 
             this.persistentObjects = [];
+
+            // create the delta_padded array
+            let deltas = [];
+            let index = 0;
+            for (let j = 0; j < this.area[1]; ++j) {
+                for (let i = 0; i < this.area[0]; ++i) {
+                    deltas.push(this.index_padded(i, j) - index);
+                    index = this.index_padded(i, j);
+                }
+            }
+            this.delta_padded = new Uint32Array(deltas);
+
         }
 
         public addObject(object: FluidObjectIJ) {
@@ -1081,6 +1096,10 @@ export namespace Fields {
 
         private get delta_row_padded() {
             return this.area[0] + 2;
+        }
+
+        private get delta_row() {
+            return this.area[0];
         }
 
         // Returns the indexing of a padded grid array
@@ -1170,56 +1189,60 @@ export namespace Fields {
 
             const delta = this.delta_row_padded;
 
-            for (let j = 0; j < this.area[1]; ++j) {
-                for (let i = 0; i < this.area[0]; ++i) {
-                    // const indices = shuffledIndex(this.area[0] * this.area[1]);
-                    // for (let z = 0; z < indices.length; ++z) {
-                    //     const k = indices[z];
-                    //
-                    //     const i = k % this.area[0];
-                    //     const j = (k / this.area[0]) >> 0;  // Math.floor(k / this.area[0])
+            let index = 0;
+            let length = this.delta_padded.length;
+            for (let z = 0; z < length; ++z) {
+                // for (let j = 0; j < this.area[1]; ++j) {
+                //     for (let i = 0; i < this.area[0]; ++i) {
+                // const indices = shuffledIndex(this.area[0] * this.area[1]);
+                // for (let z = 0; z < indices.length; ++z) {
+                //     const k = indices[z];
+                //
+                //     const i = k % this.area[0];
+                //     const j = (k / this.area[0]) >> 0;  // Math.floor(k / this.area[0])
 
-                    // caching these for performance
-                    const index = this.index_padded(i, j);
+                index += this.delta_padded[z];
+                // caching these for performance
+                // const index = this.index_padded(i, j);
 
-                    // const div = O * this.divergence(i, j);
-                    const div = O * (this.v[index]  // i,j
-                        - this.u[index]  // i,j
-                        - this.v[index + delta]  // i,j+1
-                        + this.u[index + 1]);  // i+1,j
+                // const div = O * this.divergence(i, j);
+                const div = O * (this.v[index]  // i,j
+                    - this.u[index]  // i,j
+                    - this.v[index + delta]  // i,j+1
+                    + this.u[index + 1]);  // i+1,j
 
 
-                    // const cell = this.cell(i, j);
-                    const cell = [
-                        // i,j-1
-                        this.cells[index - delta],
-                        // i-1,j
-                        this.cells[index - 1],
-                        // i,j+1
-                        this.cells[index + delta],
-                        // i+1,j
-                        this.cells[index + 1],
-                    ];
-                    const s = cell[0] + cell[1] + cell[2] + cell[3];
-
-                    // enclosed
-                    if (s === 0) {
-                        continue;
-                    }
-
-                    // [top left down right]
-                    // i,j
-                    this.v[index] -= cell[0] * div / s;
-                    this.u[index] += cell[1] * div / s;
+                // const cell = this.cell(i, j);
+                const cell = [
+                    // i,j-1
+                    this.cells[index - delta],
+                    // i-1,j
+                    this.cells[index - 1],
                     // i,j+1
-                    this.v[index + delta] += cell[2] * div / s;
+                    this.cells[index + delta],
                     // i+1,j
-                    this.u[index + 1] -= cell[3] * div / s;
+                    this.cells[index + 1],
+                ];
+                const s = cell[0] + cell[1] + cell[2] + cell[3];
 
-
-                    // update pressure
-                    this.pressure[this.index(i, j)] += (div / s) * (rho * h / dt);
+                // enclosed
+                if (s === 0) {
+                    continue;
                 }
+
+                // [top left down right]
+                // i,j
+                this.v[index] -= cell[0] * div / s;
+                this.u[index] += cell[1] * div / s;
+                // i,j+1
+                this.v[index + delta] += cell[2] * div / s;
+                // i+1,j
+                this.u[index + 1] -= cell[3] * div / s;
+
+
+                // update pressure
+                this.pressure[z] += (div / s) * (rho * h / dt);
+                // }
             }
         }
 
@@ -1229,10 +1252,10 @@ export namespace Fields {
 
             const delta = this.delta_row_padded;
 
+            let index = delta;
             for (let j = 0; j < this.area[1]; ++j) {
-                for (let i = 0; i < this.area[0]; ++i) {
-                    const index = this.index_padded(i, j);
-
+                index += 1;
+                for (let i = 0; i < this.area[0]; ++i, ++index) {
                     const velocity = [
                         // i,j + i+1,j
                         (this.u[index] + this.u[index + 1]) / 2,
@@ -1282,6 +1305,7 @@ export namespace Fields {
                     // i,j
                     new_density[index] = v1 + y * (v2 - v1);
                 }
+                index += 1;
             }
 
             // copy buffer
@@ -1294,10 +1318,10 @@ export namespace Fields {
 
             const delta = this.delta_row_padded;
 
+            let index = delta;
             for (let j = 0; j < this.area[1]; ++j) {
-                for (let i = 0; i < this.area[0]; ++i) {
-                    const index = this.index_padded(i, j);
-
+                index += 1;
+                for (let i = 0; i < this.area[0]; ++i, ++index) {
                     // i,j
                     if (this.cells[index] !== CellType.FLUID)
                         continue;
@@ -1411,6 +1435,7 @@ export namespace Fields {
                         }
                     }
                 }
+                index += 1;
             }
 
             this.u.set(this.u_buffer);
@@ -1437,10 +1462,11 @@ export namespace Fields {
                 const min = arrayMin(this.pressure);
                 let pressureColors = [];
                 let i = 0;
-                while (i < pressureColors.length) {
-                    pressureColors.push(this.cmap((this.pressure[i] - min) / (max - min)));
+                while (i < this.pressure.length) {
+                    pressureColors.push(this.cmap((Math.min(max, this.pressure[i]) - min) / (max - min)));
                     i++;
                 }
+                // debugger;
                 this.drawers.pressure.update(pressureColors);
             }
 
@@ -1455,7 +1481,7 @@ export namespace Fields {
                 let densityColors = [];
                 let i = 0;
                 while (i < density.length) {
-                    densityColors.push(this.densityCmap((density[i] - min) / (max - min)));
+                    densityColors.push(this.densityCmap((Math.min(1, density[i]) - min) / (max - min)));
                     i++;
                 }
                 this.drawers.density.update(densityColors);
@@ -1547,10 +1573,12 @@ export namespace Fields {
             }
 
             if (drawModes.includes(FluidDrawMode.CELL)) {
-                ctx.fillStyle = 'gray';
+                ctx.fillStyle = '#570083';
+
+                let index = 0;
                 for (let j = -1; j < this.area[1] + 1; ++j) {
-                    for (let i = -1; i < this.area[0] + 1; ++i) {
-                        if (this.cells[this.index_padded(i, j)] == CellType.FLUID) {
+                    for (let i = -1; i < this.area[0] + 1; ++i, ++index) {
+                        if (this.cells[index] == CellType.FLUID) {
                             continue;
                         }
 
