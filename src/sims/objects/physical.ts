@@ -964,6 +964,7 @@ export namespace Fields {
         density: Float64Array;
         cells: Uint8Array;
     }
+
     type PersistentFluidObjectIJ = (param: PersistentFluidParameter) => null;
 
     export class FluidField extends TDElement {
@@ -972,7 +973,7 @@ export namespace Fields {
             cellSize: 0.1,
             location: [0, 0],
             drawModes: [FluidDrawMode.VELOCITY, FluidDrawMode.CELL],
-            debugNaN: true
+            debugNaN: false
         }
 
         // true simulation area, excluding padding
@@ -1072,6 +1073,10 @@ export namespace Fields {
             return j * this.area[0] + i;
         }
 
+        private get delta_row_padded() {
+            return this.area[0] + 2;
+        }
+
         // Returns the indexing of a padded grid array
         public index_padded(i: number, j: number): number {
             return ((j + 1) * (this.area[0] + 2)) + i + 1;
@@ -1120,6 +1125,9 @@ export namespace Fields {
         }
 
         /// Step two ///
+
+
+        // Deprecated, kept for education
         private divergence(i: number, j: number): number {
             const top = this.v[this.index_padded(i, j)];
             const left = this.u[this.index_padded(i, j)];
@@ -1128,6 +1136,7 @@ export namespace Fields {
             return top - left - down + right;
         }
 
+        // Deprecated, kept for education
         private cell(i: number, j: number): Vec<4> {
             // returns [top, left, down, right]
             return [
@@ -1148,14 +1157,38 @@ export namespace Fields {
             const h = this.options.cellSize;
 
 
+            const delta = this.delta_row_padded;
+
             // for (let j = 0; j < this.area[1]; ++j) {
             //     for (let i = 0; i < this.area[0]; ++i) {
-            for (let k of shuffledIndex(this.area[0] * this.area[1])) {
-                const i = k % this.area[0];
-                const j = Math.floor(k / this.area[0]);
+            const indices = shuffledIndex(this.area[0] * this.area[1]);
+            for (let z = 0; z < indices.length; ++z) {
+                const k = indices[z];
 
-                const div = O * this.divergence(i, j);
-                const cell = this.cell(i, j);
+                const i = k % this.area[0];
+                const j = (k / this.area[0]) >> 0;  // Math.floor(k / this.area[0])
+
+                // caching these for performance
+                const index = this.index_padded(i, j);
+
+                // const div = O * this.divergence(i, j);
+                const div = O * (this.v[index]  // i,j
+                    - this.u[index]  // i,j
+                    - this.v[index + delta]  // i,j+1
+                    + this.u[index + 1]);  // i+1,j
+
+
+                // const cell = this.cell(i, j);
+                const cell = [
+                    // i,j-1
+                    this.cells[index - delta],
+                    // i-1,j
+                    this.cells[index - 1],
+                    // i,j+1
+                    this.cells[index + delta],
+                    // i+1,j
+                    this.cells[index + 1],
+                ];
                 const s = cell[0] + cell[1] + cell[2] + cell[3];
 
                 // enclosed
@@ -1164,10 +1197,13 @@ export namespace Fields {
                 }
 
                 // [top left down right]
-                this.v[this.index_padded(i, j)] -= cell[0] * div / s;
-                this.u[this.index_padded(i, j)] += cell[1] * div / s;
-                this.v[this.index_padded(i, j + 1)] += cell[2] * div / s;
-                this.u[this.index_padded(i + 1, j)] -= cell[3] * div / s;
+                // i,j
+                this.v[index] -= cell[0] * div / s;
+                this.u[index] += cell[1] * div / s;
+                // i,j+1
+                this.v[index + delta] += cell[2] * div / s;
+                // i+1,j
+                this.u[index + 1] -= cell[3] * div / s;
 
 
                 // update pressure
@@ -1180,11 +1216,17 @@ export namespace Fields {
             // same as moveVelocity, but uses the center node instead
             let new_density = new Float64Array(this.density);
 
+            const delta = this.delta_row_padded;
+
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
+                    const index = this.index_padded(i, j);
+
                     const velocity = [
-                        (this.u[this.index_padded(i, j)] + this.u[this.index_padded(i + 1, j)]) / 2,
-                        (this.v[this.index_padded(i, j)] + this.v[this.index_padded(i, j + 1)]) / 2,
+                        // i,j + i+1,j
+                        (this.u[index] + this.u[index + 1]) / 2,
+                        // i,j + i,j+1
+                        (this.v[index] + this.v[index + delta]) / 2,
                     ];
 
                     // has to be a plus because the grid j and velocity directions are flipped
@@ -1198,7 +1240,8 @@ export namespace Fields {
 
                     // const h = this.options.cellSize;
                     if (this.isIndexPaddedUnbounded(origin_i, origin_j)) {
-                        new_density[this.index_padded(i, j)] = 0;
+                        // i,j
+                        new_density[index] = 0;
                         continue;
                     }
                     // if (Math.abs(origin[0] - origin_i) < h / 10 && Math.abs(origin[1] - origin_j) < h / 10) {
@@ -1213,17 +1256,22 @@ export namespace Fields {
                     ];
 
                     // linear interpolate
-                    const [a, b, c, d] = [
-                        this.density[this.index_padded(origin_i - 1, origin_j - 1)],
-                        this.density[this.index_padded(origin_i, origin_j - 1)],
-                        this.density[this.index_padded(origin_i - 1, origin_j)],
-                        this.density[this.index_padded(origin_i, origin_j)],
-                    ];
+                    const origin_index = this.index_padded(origin_i, origin_j);
+
+                    // i-1,j-1
+                    const a = this.density[origin_index - 1 - delta];
+                    // i,j-1
+                    const b = this.density[origin_index - delta];
+                    // i-1,j
+                    const c = this.density[origin_index - 1];
+                    // i,j
+                    const d = this.density[origin_index];
 
                     const v1 = a + x * (b - a);
                     const v2 = c + x * (d - c);
-                    // debugger;
-                    new_density[this.index_padded(i, j)] = v1 + y * (v2 - v1);
+
+                    // i,j
+                    new_density[index] = v1 + y * (v2 - v1);
                 }
             }
 
@@ -1232,15 +1280,21 @@ export namespace Fields {
 
         private moveVelocity(dt: number) {
             let new_u = new Float64Array(this.u);
-            let new_v =  new Float64Array(this.v);
+            let new_v = new Float64Array(this.v);
+
+            const delta = this.delta_row_padded;
 
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
-                    if (this.cells[this.index_padded(i, j)] !== CellType.FLUID)
+                    const index = this.index_padded(i, j);
+
+                    // i,j
+                    if (this.cells[index] !== CellType.FLUID)
                         continue;
 
-                    const v = this.v[this.index_padded(i, j)];
-                    const u = this.u[this.index_padded(i, j)];
+                    // i,j
+                    const v = this.v[index];
+                    const u = this.u[index];
 
                     // implicit euler backwards integration
                     // for better stability
@@ -1256,10 +1310,10 @@ export namespace Fields {
                         const velocity = [
                             u,
                             (
-                                this.v[this.index_padded(i - 1, j)]
-                                + this.v[this.index_padded(i, j)]
-                                + this.v[this.index_padded(i - 1, j + 1)]
-                                + this.v[this.index_padded(i, j + 1)]
+                                this.v[index - 1]  // i-1,j
+                                + this.v[index]  // i,j
+                                + this.v[index - 1 + delta]  // i-1,j+1
+                                + this.v[index + delta]  // i,j+1
                             ) / 4
                         ];
                         // flipped sign on the y direction due to axis and velocity vector mismatch
@@ -1268,26 +1322,34 @@ export namespace Fields {
                             (j + 0.5) + dt * velocity[1]
                         ];
 
-                        let interp = 0;
+
                         // interpolate
                         const origin_i = Math.floor(origin[0]);
                         const origin_j = Math.round(origin[1]);
-                        if (!this.isIndexPaddedUnbounded(origin_i, origin_j)) {
+
+                        const origin_index = this.index_padded(origin_i, origin_j);
+
+                        // i,j
+                        if (this.isIndexPaddedUnbounded(origin_i, origin_j)) {
+                            new_u[index] = 0;
+                        } else {
                             const x = origin[0] - origin_i;
                             const y = origin[1] - origin_j + 0.5;
 
-                            const [a, b, c, d] = [
-                                this.u[this.index_padded(origin_i, origin_j - 1)],
-                                this.u[this.index_padded(origin_i + 1, origin_j - 1)],
-                                this.u[this.index_padded(origin_i, origin_j)],
-                                this.u[this.index_padded(origin_i + 1, origin_j)],
-                            ]
+                            // i,j-1
+                            const a = this.u[origin_index - delta];
+                            // i+1,j-1
+                            const b = this.u[origin_index + 1 - delta];
+                            // i,j
+                            const c = this.u[origin_index];
+                            // i+1,j
+                            const d = this.u[origin_index + 1];
+
                             const v1 = a + x * (b - a);
                             const v2 = c + x * (d - c);
-                            interp = v1 + y * (v2 - v1);
+                            // i,j
+                            new_u[index] = v1 + y * (v2 - v1);
                         }
-
-                        new_u[this.index_padded(i, j)] = interp;
                     }
 
 
@@ -1296,10 +1358,10 @@ export namespace Fields {
                         // with a horizontal velocity estimation using averages
                         const velocity = [
                             (
-                                this.u[this.index_padded(i, j - 1)]
-                                + this.u[this.index_padded(i + 1, j - 1)]
-                                + this.u[this.index_padded(i, j)]
-                                + this.u[this.index_padded(i + 1, j)]
+                                this.u[index - delta]  // i,j-1
+                                + this.u[index + 1 - delta]  // i+1,j-1
+                                + this.u[index]  // i,j
+                                + this.u[index + 1]  // i+1,j
                             ) / 4,
                             v
                         ];
@@ -1310,27 +1372,33 @@ export namespace Fields {
                             (j) + dt * velocity[1]
                         ];
 
-                        let interp = 0;
                         // interpolate
                         const origin_i = Math.round(origin[0]);
                         const origin_j = Math.floor(origin[1]);
-                        if (!this.isIndexPaddedUnbounded(origin_i, origin_j)) {
 
+                        if (this.isIndexPaddedUnbounded(origin_i, origin_j)) {
+                            // i,j
+                            new_v[index] = 0;
+                        } else {
+                            const origin_index = this.index_padded(origin_i, origin_j);
                             const x = origin[0] - origin_i + 0.5;
                             const y = origin[1] - origin_j;
 
-                            const [a, b, c, d] = [
-                                this.v[this.index_padded(origin_i - 1, origin_j)],
-                                this.v[this.index_padded(origin_i, origin_j)],
-                                this.v[this.index_padded(origin_i - 1, origin_j + 1)],
-                                this.v[this.index_padded(origin_i, origin_j + 1)],
-                            ]
+                            // i-1,j
+                            const a = this.v[origin_index-1];
+                            // i,j
+                            const b = this.v[origin_index];
+                            // i-1,j+1
+                            const c = this.v[origin_index-1+delta];
+                            // i,j+1
+                            const d = this.v[origin_index+delta];
+
                             const v1 = a + x * (b - a);
                             const v2 = c + x * (d - c);
-                            interp = v1 + y * (v2 - v1);
-                        }
 
-                        new_v[this.index_padded(i, j)] = interp;
+                            // i,j
+                            new_v[index] = v1 + y * (v2 - v1);
+                        }
                     }
                 }
             }
