@@ -255,7 +255,7 @@ export class TDCanvas implements ICanvas {
         const counter = new TDFPSClock(
             Plane.VecAddV(this.anchor(), [10 / scale, 10 / scale])
         );
-        this.addElement(counter, '@counter', 0);
+        this.addElement(counter, '@counter', 4);
     }
 
 

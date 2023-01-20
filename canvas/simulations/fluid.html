@@ -34,7 +34,7 @@
             {
                 attachments: {
                     // axis: true,
-                    // counter: true,
+                    counter: true,
                     // labels: true
                 },
 
@@ -44,7 +44,7 @@
                     scale: 300
                 },
                 rate: {
-                    update: 15,
+                    update: 60,
                 },
                 size: {
                     width: window.innerWidth,
@@ -55,7 +55,7 @@
 
         const loader = new Loader()
         const controls = await loader.inject(canvas, cvs => {
-            const size = 0.05;
+            const size = 0.04;
             const canvasArea = cvs.drawableArea();
             const field = new Fields.FluidField({
                 location: [size,size],
@@ -65,7 +65,14 @@
             });
 
             const wall = (i, j) => {
-                if (Math.abs(i - 40) < 3 && j > 10 && j < 30) {
+                if (Math.abs(i - 40) < 3 && j > 10 && j < 34) {
+                    return {
+                        cell: Fields.CellType.WALL,
+                        u: 0,
+                        v: 0
+                    }
+                }
+                if (Math.abs(i - 40) < 3 && j > 36 && j < 60) {
                     return {
                         cell: Fields.CellType.WALL,
                         u: 0,

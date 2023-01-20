@@ -34,11 +34,15 @@ export class ImageDrawer {
             return;
         }
 
-        for (const [index, color] of colors.entries()) {
+        let index = 0;
+        while (index < colors.length) {
+            const color = colors[index];
             this.colored[4 * index] = color[0];
             this.colored[4 * index + 1] = color[1];
             this.colored[4 * index + 2] = color[2];
             this.colored[4 * index + 3] = 255;  // full opacity
+
+            index++;
         }
 
         // generate bitmap

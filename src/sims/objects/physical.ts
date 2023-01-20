@@ -868,8 +868,9 @@ export namespace Fields {
             currentIndex--;
 
             // And swap it with the current element.
-            [array[currentIndex], array[randomIndex]] = [
-                array[randomIndex], array[currentIndex]];
+            const temp = array[currentIndex];
+            array[currentIndex] = array[randomIndex];
+            array[randomIndex] = temp;
         }
 
         return array;
@@ -883,6 +884,30 @@ export namespace Fields {
             i++;
         }
         return shuffle(arr);
+    }
+
+    function arrayMin(array: number[]): number {
+        let curr = Number.MAX_VALUE;
+        let i = 0;
+        while (i < array.length) {
+            if (array[i] < curr) {
+                curr = array[i];
+            }
+            i++;
+        }
+        return curr;
+    }
+
+    function arrayMax(array: number[]): number {
+        let curr = Number.MIN_VALUE;
+        let i = 0;
+        while (i < array.length) {
+            if (array[i] > curr) {
+                curr = array[i];
+            }
+            i++;
+        }
+        return curr;
     }
 
 
@@ -1073,13 +1098,10 @@ export namespace Fields {
         /// Step two ///
 
         private divergence(i: number, j: number): number {
-            const [top, left, down, right] = [
-                this.v[this.index_padded(i, j)],
-                this.u[this.index_padded(i, j)],
-                this.v[this.index_padded(i, j + 1)],
-                this.u[this.index_padded(i + 1, j)]
-            ];
-
+            const top = this.v[this.index_padded(i, j)];
+            const left = this.u[this.index_padded(i, j)];
+            const down = this.v[this.index_padded(i, j + 1)];
+            const right = this.u[this.index_padded(i + 1, j)];
             return top - left - down + right;
         }
 
@@ -1106,11 +1128,12 @@ export namespace Fields {
             // for (let j = 0; j < this.area[1]; ++j) {
             //     for (let i = 0; i < this.area[0]; ++i) {
             for (let k of shuffledIndex(this.area[0] * this.area[1])) {
-                const [j, i] = [Math.floor(k / this.area[0]), k % this.area[0]];
+                const i = k % this.area[0];
+                const j = Math.floor(k / this.area[0]);
 
                 const div = O * this.divergence(i, j);
                 const cell = this.cell(i, j);
-                const s = cell.reduce((a, b) => a + b, 0);
+                const s = cell[0] + cell[1] + cell[2] + cell[3];
 
                 // enclosed
                 if (s === 0) {
@@ -1118,11 +1141,11 @@ export namespace Fields {
                 }
 
                 // [top left down right]
-                const adjustments = cell.map(c => c * div / s);
-                this.v[this.index_padded(i, j)] -= adjustments[0];
-                this.u[this.index_padded(i, j)] += adjustments[1];
-                this.v[this.index_padded(i, j + 1)] += adjustments[2];
-                this.u[this.index_padded(i + 1, j)] -= adjustments[3];
+                this.v[this.index_padded(i, j)] -= cell[0] * div / s;
+                this.u[this.index_padded(i, j)] += cell[1] * div / s;
+                this.v[this.index_padded(i, j + 1)] += cell[2] * div / s;
+                this.u[this.index_padded(i + 1, j)] -= cell[3] * div / s;
+
 
                 // update pressure
                 this.pressure[this.index(i, j)] += (div / s) * (rho * h / dt);
@@ -1132,7 +1155,7 @@ export namespace Fields {
 
         private moveDensity(dt: number) {
             // same as moveVelocity, but uses the center node instead
-            let new_density = [...this.density];
+            let new_density = Object.values(this.density);
 
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
@@ -1181,8 +1204,8 @@ export namespace Fields {
         }
 
         private moveVelocity(dt: number) {
-            let new_u = [...this.u];
-            let new_v = [...this.v];
+            let new_u = Object.values(this.u);
+            let new_v = Object.values(this.v);
 
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
@@ -1305,8 +1328,14 @@ export namespace Fields {
             }
 
             if (this.drawers.pressure) {
-                const [max, min] = [Math.max(...this.pressure), Math.min(...this.pressure)];
-                const pressureColors = this.pressure.map(p => this.cmap((p - min) / (max - min)));
+                const max = arrayMax(this.pressure);
+                const min = arrayMin(this.pressure);
+                let pressureColors = [];
+                let i = 0;
+                while (i < pressureColors.length) {
+                    pressureColors.push(this.cmap((this.pressure[i] - min) / (max - min)));
+                    i++;
+                }
                 this.drawers.pressure.update(pressureColors);
             }
 
@@ -1318,7 +1347,12 @@ export namespace Fields {
             if (this.drawers.density) {
                 const density = this.unpad(this.density);
                 const [max, min] = [1, 0];
-                const densityColors = density.map(p => this.densityCmap((p - min) / (max - min))) as any;
+                let densityColors = [];
+                let i = 0;
+                while (i < density.length) {
+                    densityColors.push(this.densityCmap((density[i] - min) / (max - min)));
+                    i++;
+                }
                 this.drawers.density.update(densityColors);
             }
         }
@@ -1338,8 +1372,11 @@ export namespace Fields {
         update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
             const v = Math.sin(parent.totalTime) ** 2;
             //
-            for (let j = 27; j < this.area[1] - 27; ++j) {
-                this.u[this.index_padded(1, j)] = 50;
+            for (let j = 30; j < this.area[1] - 30; ++j) {
+                this.u[this.index_padded(1, j)] = 100;
+                this.u[this.index_padded(2, j)] = 100;
+                this.u[this.index_padded(3, j)] = 100;
+                this.u[this.index_padded(4, j)] = 100;
                 this.density[this.index_padded(0, j)] = 1;
             }
 
