@@ -846,10 +846,17 @@ export namespace Fields {
     }
 
 
+    // fluid helper
+    function arrayOf<T>(length: number, item: (i: number) => T): T[] {
+        return Array.from({length}).map(item);
+    }
+
+
     // fluid simulation
     interface FluidFieldOptions {
         fieldSize: Vec2;  // number of cells [width, height]
-        cellSize: Vec2;   // cell size [width, height]
+        cellSize: number;   // cell size [width, height]
+        location: Vec2;
     }
 
     const enum CellType {
@@ -860,14 +867,26 @@ export namespace Fields {
     export class FluidField extends TDElement {
         public readonly options: FluidFieldOptions = {
             fieldSize: [6, 6],
-            cellSize: [0.1, 0.1]
+            cellSize: 0.1,
+            location: [0, 0]
         }
 
-        // velocity field, staggered, anchored top left, indexed top left, one layer of extra padding on all sides
-        private u: Vec2[];
+        // true simulation area, excluding padding
+        private area: Vec2;
 
-        // contains cell type information, same extra padding
+        // velocity field, staggered, anchored top left, indexed top left, padded
+        private u: number[];
+        private v: number[];
+
+        // contains cell type information, padded
         private cells: CellType[];
+
+        // pressure information, non-padded
+        private pressure: number[];
+
+        // density information, non-padded
+        private density: number[];
+
 
         constructor(
             options: Partial<FluidFieldOptions>
@@ -879,85 +898,294 @@ export namespace Fields {
         }
 
         private allocate() {
+            const {fieldSize} = this.options;
+
+            // define area
+            this.area = fieldSize;
+
+            // create velocity field
+            this.u = arrayOf(this.size_padded(), () => 0);
+            this.v = arrayOf(this.size_padded(), () => 0);
+            this.cells = arrayOf(this.size_padded(), () => CellType.FLUID);
+            // TODO: Add walls on border
+
+            this.pressure = arrayOf(this.size(), () => 0);
+            this.density = arrayOf(this.size(), () => 0);
 
         }
+
+        /// getters ///
+        private index(i: number, j: number): number {
+            return j * this.area[0] + i;
+        }
+
+        private index_padded(i: number, j: number): number {
+            return ((j+1) * (this.area[0] + 2)) + i + 1;
+        }
+
+        private isIndexPaddedUnbounded(i: number, j: number): boolean {
+            return i < 0 || i >= this.area[0] || j < 0 || j >= this.area[1];
+        }
+
+        private size(): number {
+            return this.area[0] * this.area[1];
+        }
+
+        private size_padded(): number {
+            return (this.area[0] + 2) * (this.area[1] + 2);
+        }
+
 
         /// Step one ///
         private applyForce(dt: number) {
+            // apply gravity
             const g = -9.81;
 
-            // apply gravity
-            this.u = this.u.map(row => row.map(vel => Plane.VecAddV(vel, [0, g * dt])));
+            for (let j = 0; j < this.area[1]; ++j) {
+                for (let i = 0; i < this.area[0]; ++i) {
+                    this.u[this.index_padded(i, j)] += g * dt;
+                }
+            }
         }
 
         /// Step two ///
-        private boundaries(position: Vec2): Direction[] {
-            let directions = [];
 
-            const [x, y] = position;
-            if (x === 0) {
-                directions.push(Direction.LEFT);
-            }
+        private divergence(i: number, j: number): number {
+            const [top, left, down, right] = [
+                this.v[this.index_padded(i, j)],
+                this.u[this.index_padded(i, j)],
+                this.v[this.index_padded(i, j + 1)],
+                this.u[this.index_padded(i + 1, j)]
+            ];
 
-            if (x === this.size[0] - 1) {
-                directions.push(Direction.RIGHT);
-            }
-
-            if (y === 0) {
-                directions.push(Direction.UP);
-            }
-
-            if (y === this.size[1] - 1) {
-                directions.push(Direction.DOWN);
-            }
-
-            return directions;
+            return top - left - down + right;
         }
 
-        private divergence(position: Vec2): number {
-            const boundaries = this.boundaries(position);
-
-            const [x, y] = position;
-
-            // negative of the current cell inflows
-            let div = -this.u[y][x][0] + this.u[y][x][0];
-
-            // add down inflow
-            if (!boundaries.includes(Direction.DOWN)) {
-                div -= this.u[y + 1][x][1];
-            }
-
-            // add right inflow
-            if (!boundaries.includes(Direction.RIGHT)) {
-                div += this.u[y][x + 1][0];
-            }
-
-            return div;
+        private cell(i: number, j: number): Vec<4> {
+            // returns [top, left, down, right]
+            return [
+                this.cells[this.index_padded(i, j - 1)],
+                this.cells[this.index_padded(i - 1, j)],
+                this.cells[this.index_padded(i, j + 1)],
+                this.cells[this.index_padded(i + 1, j)],
+            ];
         }
 
-        private forceIncompressible() {
-            const boundaries = this.boundaries(position);
+        private forceIncompressible(dt: number) {
+            // update velocity field to be non-divergent
+            // let new_u = [...this.u];
+            // let new_v = [...this.v];
 
-            const div = this.div
+            // TODO: set all border cells to have zero velocity
+
+            const O = 1.9;
+            const rho = 1;
+            const h = this.options.cellSize;  // TODO: make this spacing work for uneven cells
+
+            for (let j = 0; j < this.area[1]; ++j) {
+                for (let i = 0; i < this.area[0]; ++i) {
+                    const div = O * this.divergence(i, j);
+                    const cell = this.cell(i, j);
+                    const s = cell.reduce((a, b) => a + b, 0);
+
+                    // enclosed
+                    if (s === 0) {
+                        continue;
+                    }
+
+                    // [top left down right]
+                    const adjustments = cell.map(c => c * div / s);
+                    this.v[this.index_padded(i, j)] -= adjustments[0];
+                    this.u[this.index_padded(i, j)] += adjustments[1];
+                    this.v[this.index_padded(i, j + 1)] += adjustments[2];
+                    this.u[this.index_padded(i + 1, j)] -= adjustments[3];
+
+                    // update pressure
+                    this.pressure[this.index(i, j)] += (div / s) * (rho * h / dt);
+                }
+            }
+        }
+
+        private moveDensity(dt: number) {
+            // same as moveVelocity, but uses the center node instead
+
+        }
+
+        private moveVelocity(dt: number) {
+            let new_u = [...this.u];
+            let new_v = [...this.v];
+            for (let j = 0; j < this.area[1]; ++j) {
+                for (let i = 0; i < this.area[0]; ++i) {
+                    const v = this.v[this.index_padded(i, j)];
+                    const u = this.u[this.index_padded(i, j)];
+
+                    // implicit euler backwards integration
+                    // for better stability
+                    // for each component, use the velocity at the staggered node
+                    // and step backwards to find the origin
+                    // linearly interpolate the velocity at the origin
+                    // then set the component to be the interpolated velocity component
+
+
+                    // update the horizontal component
+                    {
+                        // with a vertical velocity estimation using averages
+                        const velocity = [
+                            u,
+                            (
+                                this.v[this.index_padded(i - 1, j)]
+                                + this.v[this.index_padded(i, j)]
+                                + this.v[this.index_padded(i - 1, j + 1)]
+                                + this.v[this.index_padded(i, j + 1)]
+                            ) / 4
+                        ];
+                        const origin = [
+                            (i) - dt * velocity[0],
+                            (j + 0.5) - dt * velocity[1]
+                        ];
+
+                        let interp = 0;
+                        // interpolate
+                        const origin_i = Math.floor(origin[0]);
+                        const origin_j = Math.round(origin[1]);
+                        if (!this.isIndexPaddedUnbounded(origin_i, origin_j)) {
+                            const x = origin[0] - origin_i;
+                            const y = origin_j + 0.5 - origin[1];
+                            const h = this.options.cellSize;
+
+                            const [a, b, c, d] = [
+                                this.u[this.index_padded(origin_i, origin_j)],
+                                this.u[this.index_padded(origin_i + 1, origin_j)],
+                                this.u[this.index_padded(origin_i, origin_j - 1)],
+                                this.u[this.index_padded(origin_i + 1, origin_j - 1)],
+                            ]
+                            const v1 = a + x * (b - a);
+                            const v2 = c + x * (d - c);
+                            interp = v1 + y * (v2 - v1);
+
+
+                            if (Number.isNaN(interp)) {
+                                debugger;
+                            }
+
+                            if (interp > 5) {
+                                debugger;
+                            }
+                        }
+
+                        new_u[this.index_padded(i, j)] = interp;
+                    }
+
+
+
+                    // update the vertical component
+                    {
+                        // with a horizontal velocity estimation using averages
+                        const velocity = [
+                            (
+                                this.u[this.index_padded(i, j - 1)]
+                                + this.u[this.index_padded(i + 1, j - 1)]
+                                + this.u[this.index_padded(i, j)]
+                                + this.u[this.index_padded(i + 1, j)]
+                            ) / 4,
+                            v
+                        ];
+                        const origin = [
+                            (i + 0.5) - dt * velocity[0],
+                            (j) - dt * velocity[1]
+                        ];
+
+                        let interp = 0;
+                        // interpolate
+                        const origin_i = Math.round(origin[0]);
+                        const origin_j = Math.floor(origin[1]);
+                        if (!this.isIndexPaddedUnbounded(origin_i, origin_j)) {
+
+                            const x = origin_i + 0.5 - origin[0];
+                            const y = origin[1] - origin_j;
+                            const h = this.options.cellSize;
+
+                            const [a, b, c, d] = [
+                                this.v[this.index_padded(origin_i, origin_j)],
+                                this.v[this.index_padded(origin_i - 1, origin_j)],
+                                this.v[this.index_padded(origin_i, origin_j + 1)],
+                                this.v[this.index_padded(origin_i - 1, origin_j + 1)],
+                            ]
+                            const v1 = a + x * (b - a);
+                            const v2 = c + x * (d - c);
+                            interp = v1 + y * (v2 - v1);
+                        }
+
+                        if (Number.isNaN(interp)) {
+                            debugger;
+                        }
+
+
+                        new_v[this.index_padded(i, j)] = interp;
+                    }
+                }
+            }
+
+            this.u = new_u;
+            this.v = new_v;
         }
 
         // Advance a tick in the fluid simulation
         private tick(dt: number) {
+            // debugger;
             // diffusion/viscosity
 
             // apply forces
-            this.applyForce(dt);
+            // this.applyForce(dt);
 
             // in-compressibility condition
+            const n = 4;
+            for (let i = 0; i < n; ++i) {
+                this.forceIncompressible(dt);
+            }
+
 
 
             // advection
-
-
+            this.moveDensity(dt);
+            this.moveVelocity(dt);
         }
 
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const v = Math.sin(parent.totalTime) ** 2;
+            this.u[this.index_padded(0, 10)] = v;
+            this.u[this.index_padded(0, 11)] = v;
+            this.u[this.index_padded(0, 12)] = v;
+            this.u[this.index_padded(0, 13)] = v;
+            // debugger;
+            this.tick(dt);
+        }
 
         render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const {location, cellSize} = this.options;
+
+            const h = cellSize;
+            for (let j = 0; j < this.area[1]; ++j) {
+                for (let i = 0; i < this.area[0]; ++i) {
+                    const position = Plane.VecAddV(location, Plane.VecMulC([i, j], h));
+                    let direction = [this.u[this.index_padded(i, j)], this.v[this.index_padded(i, j)]] as Vec2;
+                    if (Plane.VecMag(direction) < 0.0001) {
+                        direction = [0, 0];
+                    } else {
+                        direction = Plane.VecMulC(direction, h/Plane.VecMag(direction));
+                    }
+
+                    Primitives.DrawVectorMaths(
+                        parent,
+                        ctx,
+                        position,
+                        direction,
+                        0.001,
+                        0.2,
+                        '#000000'
+                    );
+                }
+            }
 
         }
     }
