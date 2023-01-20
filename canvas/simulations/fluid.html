@@ -7,8 +7,15 @@
     <title>Fluid Simulation</title>
 
     <style>
+        body {
+            overflow: hidden;
+        }
+
         canvas {
             border: 1px solid black;
+            display: block;
+            position: absolute;
+            inset: 0;
         }
     </style>
 </head>
@@ -26,28 +33,60 @@
             document.getElementById('root'),
             {
                 attachments: {
-                    axis: true,
-                    counter: true,
-                    labels: true
+                    // axis: true,
+                    // counter: true,
+                    // labels: true
                 },
 
                 region: {
-                    top: 0.8,
-                    right: 0.8,
-                    scale: 400
+                    top: 1,
+                    right: 1,
+                    scale: 300
                 },
                 rate: {
-                    update: 30,
+                    update: 15,
+                },
+                size: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
                 }
             }
         );
 
         const loader = new Loader()
         const controls = await loader.inject(canvas, cvs => {
+            const size = 0.05;
+            const canvasArea = cvs.drawableArea();
             const field = new Fields.FluidField({
-                fieldSize: [20, 20],
-                cellSize: 0.05
+                location: [size,size],
+                fieldSize: [Math.floor(canvasArea[0] / size) - 2, Math.floor(canvasArea[1] / size) - 2],
+                cellSize: size,
+                drawModes: [Fields.FluidDrawMode.DENSITY, Fields.FluidDrawMode.CELL]
             });
+
+            const wall = (i, j) => {
+                if (Math.abs(i - 40) < 3 && j > 10 && j < 30) {
+                    return {
+                        cell: Fields.CellType.WALL,
+                        u: 0,
+                        v: 0
+                    }
+                }
+                return null;
+            }
+
+            // const smokeBall = (i, j)  => {
+            //     if ((i - 15) ** 2 + (j - 25) ** 2 <= 9 ** 2) {
+            //         return {
+            //             density: 1
+            //         }
+            //     }
+            //     return null;
+            // }
+
+            field.addObject(Fields.FluidFieldObjects.walls);
+            // field.addObject(smokeBall);
+            field.addObject(wall);
 
             cvs.addElement(field);
         })

@@ -38,7 +38,7 @@ export class ImageDrawer {
             this.colored[4 * index] = color[0];
             this.colored[4 * index + 1] = color[1];
             this.colored[4 * index + 2] = color[2];
-            this.colored[4 * index + 2] = 255;  // full opacity
+            this.colored[4 * index + 3] = 255;  // full opacity
         }
 
         // generate bitmap

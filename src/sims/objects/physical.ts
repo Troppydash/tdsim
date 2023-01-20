@@ -8,6 +8,7 @@ import {ContourMethods} from "../algos/contour.js";
 import {PhysicsSolvers} from "../../computation/diffeq.js";
 import {TDElement} from "../../canvas/drawers/basics.js";
 import {BindHandlers, ClickHandler, CursorStyle, DragHandler} from "../../canvas/input.js";
+import {ImageDrawer} from "../../canvas/drawers/wrapper.js";
 
 const G = 5e-3;
 const Mass = 1e4;
@@ -380,6 +381,10 @@ export namespace Fields {
             const G = x => x;
             const B = x => x;
             return intensityCMap(value, R, G, B);
+        }
+
+        export const BlackWhite = value => {
+            return [value * 255, value * 255, value * 255] as Color;
         }
     }
 
@@ -848,7 +853,36 @@ export namespace Fields {
 
     // fluid helper
     function arrayOf<T>(length: number, item: (i: number) => T): T[] {
-        return Array.from({length}).map(item);
+        return Array.from({length}).map((_, i) => item(i));
+    }
+
+    // https://stackoverflow.com/a/2450976/9341734
+    function shuffle(array) {
+        let currentIndex = array.length, randomIndex;
+
+        // While there remain elements to shuffle.
+        while (currentIndex != 0) {
+
+            // Pick a remaining element.
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex--;
+
+            // And swap it with the current element.
+            [array[currentIndex], array[randomIndex]] = [
+                array[randomIndex], array[currentIndex]];
+        }
+
+        return array;
+    }
+
+    function shuffledIndex(length: number): number[] {
+        let arr = [];
+        let i = 0;
+        while (i < length) {
+            arr.push(i);
+            i++;
+        }
+        return shuffle(arr);
     }
 
 
@@ -857,18 +891,54 @@ export namespace Fields {
         fieldSize: Vec2;  // number of cells [width, height]
         cellSize: number;   // cell size [width, height]
         location: Vec2;
+        drawModes: FluidDrawMode[];
     }
 
-    const enum CellType {
+    export enum FluidDrawMode {
+        VELOCITY = 0,
+        PRESSURE = 1,
+        CELL = 2,
+        DENSITY = 3
+    }
+
+    export enum CellType {
         FLUID = 1,
         WALL = 0
+    }
+
+    type FluidObjectIJ = (i: number, j: number) => null | Partial<{ cell: CellType, u: number, v: number, density: number }>;
+
+    export const FluidFieldObjects: Record<string, FluidObjectIJ> = {
+        walls(i, j) {
+            if (i == -1 || i == this.area[0] || j == -1 || j == this.area[1]) {
+                return {
+                    cell: CellType.WALL,
+                };
+            }
+
+            return null;
+        },
+        smokeBall(i, j) {
+            // if (i == 0 && j == 0) {
+            //     return {
+            //         density: 1
+            //     }
+            // }
+            if ((i - 15) ** 2 + (j - 25) ** 2 <= 3 ** 2) {
+                return {
+                    density: 1
+                }
+            }
+            return null;
+        }
     }
 
     export class FluidField extends TDElement {
         public readonly options: FluidFieldOptions = {
             fieldSize: [6, 6],
             cellSize: 0.1,
-            location: [0, 0]
+            location: [0, 0],
+            drawModes: [FluidDrawMode.VELOCITY, FluidDrawMode.CELL],
         }
 
         // true simulation area, excluding padding
@@ -884,9 +954,16 @@ export namespace Fields {
         // pressure information, non-padded
         private pressure: number[];
 
-        // density information, non-padded
+        // density information, padded
         private density: number[];
 
+        private cmap: ColorMap.CMap = ColorMap.Rainbow;
+        private densityCmap = ColorMap.CMapInverse(ColorMap.BlackWhite);
+
+        private drawers: {
+            pressure?: ImageDrawer,
+            density?: ImageDrawer
+        }
 
         constructor(
             options: Partial<FluidFieldOptions>
@@ -898,7 +975,7 @@ export namespace Fields {
         }
 
         private allocate() {
-            const {fieldSize} = this.options;
+            const {fieldSize, drawModes} = this.options;
 
             // define area
             this.area = fieldSize;
@@ -907,11 +984,43 @@ export namespace Fields {
             this.u = arrayOf(this.size_padded(), () => 0);
             this.v = arrayOf(this.size_padded(), () => 0);
             this.cells = arrayOf(this.size_padded(), () => CellType.FLUID);
-            // TODO: Add walls on border
 
             this.pressure = arrayOf(this.size(), () => 0);
-            this.density = arrayOf(this.size(), () => 0);
+            this.density = arrayOf(this.size_padded(), () => 0);
 
+            this.drawers = {};
+            if (drawModes.includes(FluidDrawMode.PRESSURE)) {
+                this.drawers.pressure = new ImageDrawer(this.area);
+            }
+            if (drawModes.includes(FluidDrawMode.DENSITY)) {
+                this.drawers.density = new ImageDrawer(this.area);
+            }
+        }
+
+        public addObject(object: FluidObjectIJ) {
+            object = object.bind(this);
+
+            for (let j = -1; j < this.area[1] + 1; ++j) {
+                for (let i = -1; i < this.area[0] + 1; ++i) {
+                    const result = object(i, j);
+                    if (result == null) {
+                        continue;
+                    }
+
+                    const index = this.index_padded(i, j);
+                    if (result.cell != null)
+                        this.cells[index] = result.cell;
+
+                    if (result.u != null)
+                        this.u[index] = result.u;
+
+                    if (result.v != null)
+                        this.v[index] = result.v;
+
+                    if (result.density != null)
+                        this.density[index] = result.density
+                }
+            }
         }
 
         /// getters ///
@@ -920,11 +1029,21 @@ export namespace Fields {
         }
 
         private index_padded(i: number, j: number): number {
-            return ((j+1) * (this.area[0] + 2)) + i + 1;
+            return ((j + 1) * (this.area[0] + 2)) + i + 1;
         }
 
         private isIndexPaddedUnbounded(i: number, j: number): boolean {
             return i < 0 || i >= this.area[0] || j < 0 || j >= this.area[1];
+        }
+
+        private unpad<T>(array: T[]): T[] {
+            let output = [];
+            for (let j = 0; j < this.area[1]; ++j) {
+                for (let i = 0; i < this.area[0]; ++i) {
+                    output.push(array[this.index_padded(i, j)])
+                }
+            }
+            return output;
         }
 
         private size(): number {
@@ -935,15 +1054,18 @@ export namespace Fields {
             return (this.area[0] + 2) * (this.area[1] + 2);
         }
 
+        private canvasSize(): Vec2 {
+            return [this.area[0] * this.options.cellSize, this.area[1] * this.options.cellSize];
+        }
 
         /// Step one ///
         private applyForce(dt: number) {
             // apply gravity
-            const g = -9.81;
+            const g = -1;
 
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
-                    this.u[this.index_padded(i, j)] += g * dt;
+                    this.v[this.index_padded(i, j)] += g * dt;
                 }
             }
         }
@@ -976,46 +1098,97 @@ export namespace Fields {
             // let new_u = [...this.u];
             // let new_v = [...this.v];
 
-            // TODO: set all border cells to have zero velocity
-
             const O = 1.9;
             const rho = 1;
-            const h = this.options.cellSize;  // TODO: make this spacing work for uneven cells
+            const h = this.options.cellSize;
 
-            for (let j = 0; j < this.area[1]; ++j) {
-                for (let i = 0; i < this.area[0]; ++i) {
-                    const div = O * this.divergence(i, j);
-                    const cell = this.cell(i, j);
-                    const s = cell.reduce((a, b) => a + b, 0);
 
-                    // enclosed
-                    if (s === 0) {
-                        continue;
-                    }
+            // for (let j = 0; j < this.area[1]; ++j) {
+            //     for (let i = 0; i < this.area[0]; ++i) {
+            for (let k of shuffledIndex(this.area[0] * this.area[1])) {
+                const [j, i] = [Math.floor(k / this.area[0]), k % this.area[0]];
 
-                    // [top left down right]
-                    const adjustments = cell.map(c => c * div / s);
-                    this.v[this.index_padded(i, j)] -= adjustments[0];
-                    this.u[this.index_padded(i, j)] += adjustments[1];
-                    this.v[this.index_padded(i, j + 1)] += adjustments[2];
-                    this.u[this.index_padded(i + 1, j)] -= adjustments[3];
+                const div = O * this.divergence(i, j);
+                const cell = this.cell(i, j);
+                const s = cell.reduce((a, b) => a + b, 0);
 
-                    // update pressure
-                    this.pressure[this.index(i, j)] += (div / s) * (rho * h / dt);
+                // enclosed
+                if (s === 0) {
+                    continue;
                 }
+
+                // [top left down right]
+                const adjustments = cell.map(c => c * div / s);
+                this.v[this.index_padded(i, j)] -= adjustments[0];
+                this.u[this.index_padded(i, j)] += adjustments[1];
+                this.v[this.index_padded(i, j + 1)] += adjustments[2];
+                this.u[this.index_padded(i + 1, j)] -= adjustments[3];
+
+                // update pressure
+                this.pressure[this.index(i, j)] += (div / s) * (rho * h / dt);
+                // }
             }
         }
 
         private moveDensity(dt: number) {
             // same as moveVelocity, but uses the center node instead
+            let new_density = [...this.density];
 
+            for (let j = 0; j < this.area[1]; ++j) {
+                for (let i = 0; i < this.area[0]; ++i) {
+                    const velocity = [
+                        (this.u[this.index_padded(i, j)] + this.u[this.index_padded(i + 1, j)]) / 2,
+                        (this.v[this.index_padded(i, j)] + this.v[this.index_padded(i, j + 1)]) / 2,
+                    ];
+
+                    // has to be a plus because the grid j and velocity directions are flipped
+                    const origin = [
+                        (i + 0.5) - dt * velocity[0],
+                        (j + 0.5) + dt * velocity[1]
+                    ];
+
+                    const origin_i = Math.round(origin[0]);
+                    const origin_j = Math.round(origin[1]);
+
+                    const h = this.options.cellSize;
+                    if (Math.abs(origin[0] - origin_i) < h / 10 && Math.abs(origin[1] - origin_j) < h / 10) {
+                        new_density[this.index_padded(i, j)] = this.density[this.index_padded(origin_i, origin_j)];
+                        continue;
+                    }
+
+                    // distance to top left point
+                    const [x, y] = [
+                        origin[0] - origin_i + 0.5,
+                        origin[1] - origin_j + 0.5,
+                    ];
+
+                    // linear interpolate
+                    const [a, b, c, d] = [
+                        this.density[this.index_padded(origin_i - 1, origin_j - 1)],
+                        this.density[this.index_padded(origin_i, origin_j - 1)],
+                        this.density[this.index_padded(origin_i - 1, origin_j)],
+                        this.density[this.index_padded(origin_i, origin_j)],
+                    ];
+
+                    const v1 = a + x * (b - a);
+                    const v2 = c + x * (d - c);
+                    // debugger;
+                    new_density[this.index_padded(i, j)] = v1 + y * (v2 - v1);
+                }
+            }
+
+            this.density = new_density;
         }
 
         private moveVelocity(dt: number) {
             let new_u = [...this.u];
             let new_v = [...this.v];
+
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
+                    if (this.cells[this.index_padded(i, j)] !== CellType.FLUID)
+                        continue;
+
                     const v = this.v[this.index_padded(i, j)];
                     const u = this.u[this.index_padded(i, j)];
 
@@ -1039,9 +1212,10 @@ export namespace Fields {
                                 + this.v[this.index_padded(i, j + 1)]
                             ) / 4
                         ];
+                        // flipped sign on the y direction due to axis and velocity vector mismatch
                         const origin = [
                             (i) - dt * velocity[0],
-                            (j + 0.5) - dt * velocity[1]
+                            (j + 0.5) + dt * velocity[1]
                         ];
 
                         let interp = 0;
@@ -1050,32 +1224,21 @@ export namespace Fields {
                         const origin_j = Math.round(origin[1]);
                         if (!this.isIndexPaddedUnbounded(origin_i, origin_j)) {
                             const x = origin[0] - origin_i;
-                            const y = origin_j + 0.5 - origin[1];
-                            const h = this.options.cellSize;
+                            const y = origin[1] - origin_j + 0.5;
 
                             const [a, b, c, d] = [
-                                this.u[this.index_padded(origin_i, origin_j)],
-                                this.u[this.index_padded(origin_i + 1, origin_j)],
                                 this.u[this.index_padded(origin_i, origin_j - 1)],
                                 this.u[this.index_padded(origin_i + 1, origin_j - 1)],
+                                this.u[this.index_padded(origin_i, origin_j)],
+                                this.u[this.index_padded(origin_i + 1, origin_j)],
                             ]
                             const v1 = a + x * (b - a);
                             const v2 = c + x * (d - c);
                             interp = v1 + y * (v2 - v1);
-
-
-                            if (Number.isNaN(interp)) {
-                                debugger;
-                            }
-
-                            if (interp > 5) {
-                                debugger;
-                            }
                         }
 
                         new_u[this.index_padded(i, j)] = interp;
                     }
-
 
 
                     // update the vertical component
@@ -1090,9 +1253,11 @@ export namespace Fields {
                             ) / 4,
                             v
                         ];
+
+                        // flipped sign on the y direction due to axis and velocity vector mismatch
                         const origin = [
                             (i + 0.5) - dt * velocity[0],
-                            (j) - dt * velocity[1]
+                            (j) + dt * velocity[1]
                         ];
 
                         let interp = 0;
@@ -1101,25 +1266,19 @@ export namespace Fields {
                         const origin_j = Math.floor(origin[1]);
                         if (!this.isIndexPaddedUnbounded(origin_i, origin_j)) {
 
-                            const x = origin_i + 0.5 - origin[0];
+                            const x = origin[0] - origin_i + 0.5;
                             const y = origin[1] - origin_j;
-                            const h = this.options.cellSize;
 
                             const [a, b, c, d] = [
-                                this.v[this.index_padded(origin_i, origin_j)],
                                 this.v[this.index_padded(origin_i - 1, origin_j)],
-                                this.v[this.index_padded(origin_i, origin_j + 1)],
+                                this.v[this.index_padded(origin_i, origin_j)],
                                 this.v[this.index_padded(origin_i - 1, origin_j + 1)],
+                                this.v[this.index_padded(origin_i, origin_j + 1)],
                             ]
                             const v1 = a + x * (b - a);
                             const v2 = c + x * (d - c);
                             interp = v1 + y * (v2 - v1);
                         }
-
-                        if (Number.isNaN(interp)) {
-                            debugger;
-                        }
-
 
                         new_v[this.index_padded(i, j)] = interp;
                     }
@@ -1142,48 +1301,116 @@ export namespace Fields {
             const n = 4;
             for (let i = 0; i < n; ++i) {
                 this.forceIncompressible(dt);
+                this.debugNaN();
             }
 
-
+            if (this.drawers.pressure) {
+                const [max, min] = [Math.max(...this.pressure), Math.min(...this.pressure)];
+                const pressureColors = this.pressure.map(p => this.cmap((p - min) / (max - min)));
+                this.drawers.pressure.update(pressureColors);
+            }
 
             // advection
             this.moveDensity(dt);
+            this.debugNaN();
             this.moveVelocity(dt);
+            this.debugNaN();
+            if (this.drawers.density) {
+                const density = this.unpad(this.density);
+                const [max, min] = [1, 0];
+                const densityColors = density.map(p => this.densityCmap((p - min) / (max - min))) as any;
+                this.drawers.density.update(densityColors);
+            }
+        }
+
+        private debugNaN() {
+            return;
+
+            if (this.u.includes(Number.NaN)) {
+                debugger;
+            }
+
+            if (this.v.includes(Number.NaN)) {
+                debugger;
+            }
         }
 
         update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
             const v = Math.sin(parent.totalTime) ** 2;
-            this.u[this.index_padded(0, 10)] = v;
-            this.u[this.index_padded(0, 11)] = v;
-            this.u[this.index_padded(0, 12)] = v;
-            this.u[this.index_padded(0, 13)] = v;
+            //
+            for (let j = 27; j < this.area[1] - 27; ++j) {
+                this.u[this.index_padded(1, j)] = 50;
+                this.density[this.index_padded(0, j)] = 1;
+            }
+
             // debugger;
             this.tick(dt);
         }
 
         render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            const {location, cellSize} = this.options;
+            const {location, cellSize, drawModes} = this.options;
 
             const h = cellSize;
-            for (let j = 0; j < this.area[1]; ++j) {
-                for (let i = 0; i < this.area[0]; ++i) {
-                    const position = Plane.VecAddV(location, Plane.VecMulC([i, j], h));
-                    let direction = [this.u[this.index_padded(i, j)], this.v[this.index_padded(i, j)]] as Vec2;
-                    if (Plane.VecMag(direction) < 0.0001) {
-                        direction = [0, 0];
-                    } else {
-                        direction = Plane.VecMulC(direction, h/Plane.VecMag(direction));
-                    }
 
-                    Primitives.DrawVectorMaths(
-                        parent,
-                        ctx,
-                        position,
-                        direction,
-                        0.001,
-                        0.2,
-                        '#000000'
-                    );
+            if (drawModes.includes(FluidDrawMode.PRESSURE)) {
+                this.drawers.pressure.draw(
+                    parent, ctx, location, this.canvasSize()
+                );
+            }
+
+            if (drawModes.includes(FluidDrawMode.DENSITY)) {
+                this.drawers.density.draw(
+                    parent, ctx, location, this.canvasSize()
+                );
+            }
+
+            if (drawModes.includes(FluidDrawMode.VELOCITY)) {
+                for (let j = 0; j < this.area[1]; ++j) {
+                    for (let i = 0; i < this.area[0]; ++i) {
+                        const canvasPosition = [i + 0.5, this.area[1] - (j + 0.5)] as Vec2;
+                        const position = Plane.VecAddV(location, Plane.VecMulC(canvasPosition, h));
+
+                        // const position =
+                        //     Plane.VecAddV(location, Plane.VecMulC([i + 0.5, j - 0.5], h));
+
+
+                        let direction = [this.u[this.index_padded(i, j)], this.v[this.index_padded(i, j)]] as Vec2;
+                        if (Plane.VecMag(direction) < 2 * Number.EPSILON) {
+                            direction = [0, 0];
+                        } else {
+                            direction = Plane.VecMulC(direction, h / Plane.VecMag(direction));
+                        }
+
+                        Primitives.DrawVectorMaths(
+                            parent,
+                            ctx,
+                            position,
+                            direction,
+                            0.001,
+                            0.2,
+                            '#000000'
+                        );
+                    }
+                }
+            }
+
+            if (drawModes.includes(FluidDrawMode.CELL)) {
+                ctx.fillStyle = 'gray';
+                for (let j = -1; j < this.area[1] + 1; ++j) {
+                    for (let i = -1; i < this.area[0] + 1; ++i) {
+                        if (this.cells[this.index_padded(i, j)] == CellType.FLUID) {
+                            continue;
+                        }
+
+                        const canvasPosition = [i, this.area[1] - j] as Vec2;
+                        const position = Plane.VecAddV(location, Plane.VecMulC(canvasPosition, h));
+
+                        ctx.fillRect(
+                            ...parent.localToWorld(position),
+                            parent.localToWorldScalar(h),
+                            parent.localToWorldScalar(h),
+                        );
+                    }
                 }
             }
 
