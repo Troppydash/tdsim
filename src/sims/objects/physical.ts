@@ -917,6 +917,7 @@ export namespace Fields {
         cellSize: number;   // cell size [width, height]
         location: Vec2;
         drawModes: FluidDrawMode[];
+        debugNaN: boolean;  // truthy to call the debugger on NaN values
     }
 
     export enum FluidDrawMode {
@@ -932,7 +933,6 @@ export namespace Fields {
     }
 
     type FluidObjectIJ = (i: number, j: number) => null | Partial<{ cell: CellType, u: number, v: number, density: number }>;
-
     export const FluidFieldObjects: Record<string, FluidObjectIJ> = {
         walls(i, j) {
             if (i == -1 || i == this.area[0] || j == -1 || j == this.area[1]) {
@@ -958,31 +958,42 @@ export namespace Fields {
         }
     }
 
+    interface PersistentFluidParameter {
+        u: Float64Array;
+        v: Float64Array;
+        density: Float64Array;
+        cells: Uint8Array;
+    }
+    type PersistentFluidObjectIJ = (param: PersistentFluidParameter) => null;
+
     export class FluidField extends TDElement {
         public readonly options: FluidFieldOptions = {
             fieldSize: [6, 6],
             cellSize: 0.1,
             location: [0, 0],
             drawModes: [FluidDrawMode.VELOCITY, FluidDrawMode.CELL],
+            debugNaN: true
         }
 
         // true simulation area, excluding padding
-        private area: Vec2;
+        public readonly area: Vec2;
 
         // velocity field, staggered, anchored top left, indexed top left, padded
-        private u: number[];
-        private v: number[];
+        private u: Float64Array;
+        private v: Float64Array;
 
         // contains cell type information, padded
-        private cells: CellType[];
+        private cells: Uint8Array;
+
+        // density information, padded
+        private density: Float64Array;
 
         // pressure information, non-padded
         private pressure: number[];
 
-        // density information, padded
-        private density: number[];
-
+        // color map of the pressure field
         private cmap: ColorMap.CMap = ColorMap.Rainbow;
+        // color map of the density field
         private densityCmap = ColorMap.CMapInverse(ColorMap.BlackWhite);
 
         private drawers: {
@@ -990,28 +1001,28 @@ export namespace Fields {
             density?: ImageDrawer
         }
 
+        private persistentObjects: PersistentFluidObjectIJ[];
+
         constructor(
             options: Partial<FluidFieldOptions>
         ) {
             super();
 
             this.options = {...this.options, ...options};
+            this.area = this.options.fieldSize;
             this.allocate();
         }
 
         private allocate() {
             const {fieldSize, drawModes} = this.options;
 
-            // define area
-            this.area = fieldSize;
-
             // create velocity field
-            this.u = arrayOf(this.size_padded(), () => 0);
-            this.v = arrayOf(this.size_padded(), () => 0);
-            this.cells = arrayOf(this.size_padded(), () => CellType.FLUID);
+            this.u = new Float64Array(arrayOf(this.size_padded(), () => 0));
+            this.v = new Float64Array(arrayOf(this.size_padded(), () => 0));
+            this.cells = new Uint8Array(arrayOf(this.size_padded(), () => CellType.FLUID));
 
             this.pressure = arrayOf(this.size(), () => 0);
-            this.density = arrayOf(this.size_padded(), () => 0);
+            this.density = new Float64Array(arrayOf(this.size_padded(), () => 0));
 
             this.drawers = {};
             if (drawModes.includes(FluidDrawMode.PRESSURE)) {
@@ -1020,6 +1031,8 @@ export namespace Fields {
             if (drawModes.includes(FluidDrawMode.DENSITY)) {
                 this.drawers.density = new ImageDrawer(this.area);
             }
+
+            this.persistentObjects = [];
         }
 
         public addObject(object: FluidObjectIJ) {
@@ -1048,20 +1061,28 @@ export namespace Fields {
             }
         }
 
+        public addPersistentObject(object: PersistentFluidObjectIJ) {
+            this.persistentObjects.push(object);
+        }
+
         /// getters ///
-        private index(i: number, j: number): number {
+
+        // Returns the indexing for an unpadded grid array
+        public index(i: number, j: number): number {
             return j * this.area[0] + i;
         }
 
-        private index_padded(i: number, j: number): number {
+        // Returns the indexing of a padded grid array
+        public index_padded(i: number, j: number): number {
             return ((j + 1) * (this.area[0] + 2)) + i + 1;
         }
 
-        private isIndexPaddedUnbounded(i: number, j: number): boolean {
+        // Returns whether the padded index is unbounded, ie outside of the visible area
+        public isIndexPaddedUnbounded(i: number, j: number): boolean {
             return i < 0 || i >= this.area[0] || j < 0 || j >= this.area[1];
         }
 
-        private unpad<T>(array: T[]): T[] {
+        private unpad(array: Float64Array): number[] {
             let output = [];
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
@@ -1071,15 +1092,18 @@ export namespace Fields {
             return output;
         }
 
-        private size(): number {
+        // Returns the length of the unpadded grid array
+        public size(): number {
             return this.area[0] * this.area[1];
         }
 
-        private size_padded(): number {
+        // Returns the length of the padded grid array
+        public size_padded(): number {
             return (this.area[0] + 2) * (this.area[1] + 2);
         }
 
-        private canvasSize(): Vec2 {
+        // Returns the canvas size of the field
+        public canvasSize(): Vec2 {
             return [this.area[0] * this.options.cellSize, this.area[1] * this.options.cellSize];
         }
 
@@ -1096,7 +1120,6 @@ export namespace Fields {
         }
 
         /// Step two ///
-
         private divergence(i: number, j: number): number {
             const top = this.v[this.index_padded(i, j)];
             const left = this.u[this.index_padded(i, j)];
@@ -1155,7 +1178,7 @@ export namespace Fields {
 
         private moveDensity(dt: number) {
             // same as moveVelocity, but uses the center node instead
-            let new_density = Object.values(this.density);
+            let new_density = new Float64Array(this.density);
 
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
@@ -1173,11 +1196,15 @@ export namespace Fields {
                     const origin_i = Math.round(origin[0]);
                     const origin_j = Math.round(origin[1]);
 
-                    const h = this.options.cellSize;
-                    if (Math.abs(origin[0] - origin_i) < h / 10 && Math.abs(origin[1] - origin_j) < h / 10) {
-                        new_density[this.index_padded(i, j)] = this.density[this.index_padded(origin_i, origin_j)];
+                    // const h = this.options.cellSize;
+                    if (this.isIndexPaddedUnbounded(origin_i, origin_j)) {
+                        new_density[this.index_padded(i, j)] = 0;
                         continue;
                     }
+                    // if (Math.abs(origin[0] - origin_i) < h / 10 && Math.abs(origin[1] - origin_j) < h / 10) {
+                    //     new_density[this.index_padded(i, j)] = this.density[this.index_padded(origin_i, origin_j)];
+                    //     continue;
+                    // }
 
                     // distance to top left point
                     const [x, y] = [
@@ -1204,8 +1231,8 @@ export namespace Fields {
         }
 
         private moveVelocity(dt: number) {
-            let new_u = Object.values(this.u);
-            let new_v = Object.values(this.v);
+            let new_u = new Float64Array(this.u);
+            let new_v =  new Float64Array(this.v);
 
             for (let j = 0; j < this.area[1]; ++j) {
                 for (let i = 0; i < this.area[0]; ++i) {
@@ -1321,7 +1348,7 @@ export namespace Fields {
             // this.applyForce(dt);
 
             // in-compressibility condition
-            const n = 4;
+            const n = 6;
             for (let i = 0; i < n; ++i) {
                 this.forceIncompressible(dt);
                 this.debugNaN();
@@ -1358,7 +1385,9 @@ export namespace Fields {
         }
 
         private debugNaN() {
-            return;
+            if (!this.options.debugNaN) {
+                return;
+            }
 
             if (this.u.includes(Number.NaN)) {
                 debugger;
@@ -1367,20 +1396,28 @@ export namespace Fields {
             if (this.v.includes(Number.NaN)) {
                 debugger;
             }
+
+            if (this.density.includes(Number.NaN)) {
+                debugger;
+            }
+
+            if (this.pressure.includes(Number.NaN)) {
+                debugger;
+            }
         }
 
         update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
-            const v = Math.sin(parent.totalTime) ** 2;
-            //
-            for (let j = 30; j < this.area[1] - 30; ++j) {
-                this.u[this.index_padded(1, j)] = 100;
-                this.u[this.index_padded(2, j)] = 100;
-                this.u[this.index_padded(3, j)] = 100;
-                this.u[this.index_padded(4, j)] = 100;
-                this.density[this.index_padded(0, j)] = 1;
+            // apply persistent objects
+            for (const object of this.persistentObjects) {
+                object({
+                    density: this.density,
+                    cells: this.cells,
+                    u: this.u,
+                    v: this.v
+                });
             }
 
-            // debugger;
+            // fluid simulation
             this.tick(dt);
         }
 

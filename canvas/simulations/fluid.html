@@ -44,7 +44,7 @@
                     scale: 300
                 },
                 rate: {
-                    update: 60,
+                    update: 30,
                 },
                 size: {
                     width: window.innerWidth,
@@ -82,18 +82,33 @@
                 return null;
             }
 
-            // const smokeBall = (i, j)  => {
-            //     if ((i - 15) ** 2 + (j - 25) ** 2 <= 9 ** 2) {
-            //         return {
-            //             density: 1
-            //         }
-            //     }
-            //     return null;
-            // }
+            const sphere = (i, j) => {
+                if ((i - 43) ** 2 + (j - 43) ** 2 < 7 ** 2) {
+                    return {
+                        cell: Fields.CellType.WALL,
+                        u: 0,
+                        v: 0
+                    };
+                }
+                return null;
+            }
 
-            field.addObject(Fields.FluidFieldObjects.walls);
-            // field.addObject(smokeBall);
-            field.addObject(wall);
+            const turbine = ({u, density}) => {
+                const width = 9;
+                for (let j = 40; j < 40 + width; ++j) {
+                    u[field.index_padded(1, j)] = 100;
+                    u[field.index_padded(2, j)] = 100;
+                    u[field.index_padded(3, j)] = 100;
+                    u[field.index_padded(4, j)] = 100;
+                    u[field.index_padded(5, j)] = 100;
+                    density[field.index_padded(0, j)] = 1;
+                }
+            }
+
+            // field.addObject(Fields.FluidFieldObjects.walls);
+            field.addObject(sphere);
+
+            field.addPersistentObject(turbine);
 
             cvs.addElement(field);
         })
