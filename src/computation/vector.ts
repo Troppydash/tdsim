@@ -359,12 +359,6 @@ export namespace Complex {
     }
 }
 
-export namespace Matrix {
-
-}
-
-
-
 export class Range {
     private _size: number;
     private _iter: Pair<number>[];

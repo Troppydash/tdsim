@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Constraint Solver</title>
+</head>
+<body>
+
+<div>
+    <canvas id="root"></canvas>
+</div>
+
+<script type="module">
+
+    import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
+    import {Loader} from "../../build/tdsim/canvas/loader.js";
+    import {Systems} from "../../build/tdsim/sims/objects/system.js";
+    import {DynamicGraphs} from "../../build/tdsim/sims/algos/graphing.js";
+
+    const canvas = new TDCanvas(
+        document.getElementById('root'),
+        {
+            attachments: {
+                axis: true,
+                labels: true,
+            },
+            rate: {
+                update: 360,
+            },
+            region: {
+                right: 0.9,
+                top: 0.9
+            }
+        }
+    );
+
+    const loader = new Loader();
+    loader.inject(canvas, cvs => {
+        const pendulum = new Systems.ConstraintPendulum({
+            mass: 0.1,
+            length: 4,
+            angle: -60 / 180 * Math.PI,
+            gravity: 9.81
+        });
+
+        const grapher = new DynamicGraphs.EnergeticSystemGrapher(
+            pendulum,
+            ['kineticEnergy', 'potentialEnergy', 'totalEnergy'],
+            ['#ff0000', '#008cff', '#000'],
+            {
+                location: [0, 0],
+                size:  [13, 8],
+                bindings: {
+                    xrange: [0, 4],
+                    yrange: [-10, 10],
+                    bordered: false,
+                    axis: false
+                }
+            }
+        )
+
+        cvs.addElement(pendulum);
+        cvs.addElement(grapher);
+    });
+</script>
+</body>
+</html>
