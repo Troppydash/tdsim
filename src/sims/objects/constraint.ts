@@ -1,19 +1,46 @@
 // SOLVER, SYSTEM
 
 import {TDElement} from "../../canvas/drawers/basics.js";
+import {ICanvas} from "../../canvas/canvas.js";
 
 export abstract class BaseSystem extends TDElement {
     // constants
+
+    // the inverted mass matrix
     abstract imass: Matrix;
+
+    // the Jacobian of the system
     abstract J(q: Vector, dq: Vector, t: number): Matrix;
+
+    // the time derivative Jacobian of the system
     abstract dJ(q: Vector, dq: Vector, t: number): Matrix;
+
+    // the second time derivative of the constraint vector function
     abstract ctt(q: Vector, t: number): Vector;
+
+    abstract C(q: Vector, dq: Vector, t: number): Vector;
+
+    abstract dC(q: Vector, dq: Vector, t: number): Vector;
 
     // variables
     q: Vector;
     dq: Vector;
-
     forces: Vector;
+    private lastTime: number;
+
+    private lastC: Vector;
+    private lastDC: Vector;
+
+    alpha: number = 0;
+    beta: number = 0;
+
+    dAlpha: number = 0;
+    dBeta: number = 0;
+
+    dt: number;
+    // solving classes
+    private solver = new ConstraintSolver();
+    private integrator: Integrator = new RK4Integrator();
 
     // constructors for initial conditions
     protected constructor(
@@ -24,27 +51,61 @@ export abstract class BaseSystem extends TDElement {
         this.q = Matrix.fromVector(q);
         this.dq = Matrix.fromVector(dq);
         this.forces = Matrix.empty(q.length);
+        this.lastTime = 0;
+
+        const C = this.C(this.q, this.dq, 0);
+        this.lastC = Matrix.empty(C.rows);
+        this.lastDC = Matrix.empty(C.rows);
+
+        this.compute = this.compute.bind(this);
+
+    }
+
+    start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+        this.dt = 1/parent.options.rate.update;
+    }
+
+    public totalError(): number {
+        const t = this.lastTime;
+        const errors = this.C(this.q, this.dq, t);
+        let total = 0;
+        for (const err of errors.data) {
+            total += err;
+        }
+
+        return total;
+    }
+
+    public totalDError(): number {
+        const t = this.lastTime;
+        const errors = this.dC(this.q, this.dq, t);
+        let total = 0;
+        for (const err of errors.data) {
+            total += err;
+        }
+
+        return total;
+    }
+
+    protected compute(q: Vector, dq: Vector, t: number) {
+        const J = this.J(q, dq, t);
+        const dJ = this.dJ(q, dq, t);
+        const ctt = this.ctt(q, t);
+        const feedback = this.computeFeedback(this.dt, t);
+        return this.solver.solve(this.imass, J, dJ, ctt, this.forces, dq, feedback);
     }
 
     protected tick(t: number, dt: number) {
-
+        this.lastTime = t;
         // compute acceleration
-        const solver = new ConstraintSolver();
-        const J = this.J(this.q, this.dq, t);
-        const dJ = this.dJ(this.q, this.dq, t);
-        const ctt = this.ctt(this.q, t);
-        const a = solver.solve(this.imass, J, dJ, ctt, this.forces, this.dq);
-
-        // apply acceleration, temporary euler
-        a.multiply(dt);
-        this.dq.add(a);
-
-        const v = this.dq.clone();
-        v.multiply(dt);
-        this.q.add(v);
-
+        this.integrator.compute(
+            this.compute,
+            this.q,
+            this.dq,
+            t,
+            dt
+        );
         this.forces.clear();
-
     }
 
     public addForce(force: number[]) {
@@ -52,13 +113,97 @@ export abstract class BaseSystem extends TDElement {
         this.forces.add(F);
     }
 
+    protected computeFeedback(dt: number, t: number): Vector {
+        const C = this.C(this.q, this.dq, t);
+        const dC = this.dC(this.q, this.dq, t);
+
+        const diffC = C.clone().subtract(this.lastC);
+        const diffDC = dC.clone().subtract(this.lastDC);
+
+        const JT = this.J(this.q, this.dq, t);
+        JT.transpose();
+
+        const Alpha = C.clone().multiplyLeft(JT).multiply(this.alpha);
+        const Beta = dC.clone().multiplyLeft(JT).multiply(this.beta);
+        const dAlpha = diffC.clone().multiplyLeft(JT).multiply(this.dAlpha / dt);
+        const dBeta = diffDC.clone().multiplyLeft(JT).multiply(this.dBeta / dt);
+
+        this.lastC = C.clone();
+        this.lastDC = dC.clone();
+
+        return Alpha.add(Beta).add(dAlpha).add(dBeta);
+    }
+
     protected position() {
         return this.q.data;
     }
-
-
-
 }
+
+export interface Integrator {
+    compute(acc: (q: Vector, dq: Vector, t: number) => Vector, q: Vector, dq: Vector, t: number, dt: number);
+}
+
+export class LeapFrogIntegrator implements Integrator {
+    compute(acc: (q: Vector, dq: Vector, t: number) => Vector, q: Vector, dq: Vector, t: number, dt: number) {
+        let a = acc(q, dq, t);
+
+        a.multiply(dt / 2);
+        dq.add(a);
+
+        const halfv = dq.clone();
+        halfv.multiply(dt);
+        q.add(halfv);
+
+        a = acc(q, dq, t + dt / 2);
+        a.multiply(dt / 2);
+        dq.add(a);
+        // const a = acc(q, dq, t);
+        // const ax = a.clone().multiply(dt * dt / 2);
+        // const vx = dq.clone().multiply(dt);
+        // const newQ = q.clone().add(vx).add(ax);
+        //
+        // const a2 = acc(newQ, dq, t);
+        // a2.add(a).multiply(dt / 2);
+        //
+        // dq.add(a2);
+        // q.copy(newQ);
+    }
+}
+
+export class RK4Integrator implements Integrator {
+    compute(acc: (q: Vector, dq: Vector, t: number) => Vector, q: Vector, dq: Vector, t: number, dt: number) {
+        const dzdt = (q, dq, t) => {
+            return [
+                dq,
+                acc(q, dq, t)
+            ] as [Vector, Vector];
+        }
+
+        const k1 = dzdt(q, dq.clone(), t);
+        const k2 = dzdt(
+            q.clone().add(k1[0].clone().multiply(dt / 2)),
+            dq.clone().add(k1[1].clone().multiply(dt / 2)),
+            t + dt / 2,
+        );
+        const k3 = dzdt(
+            q.clone().add(k2[0].clone().multiply(dt / 2)),
+            dq.clone().add(k2[1].clone().multiply(dt / 2)),
+            t + dt / 2,
+        );
+        const k4 = dzdt(
+            q.clone().add(k3[0].clone().multiply(dt)),
+            dq.clone().add(k3[1].clone().multiply(dt)),
+            t + dt,
+        )
+
+        const totalQ = k1[0].add(k2[0].multiply(2)).add(k3[0].multiply(2)).add(k4[0]);
+        const totalDq = k1[1].add(k2[1].multiply(2)).add(k3[1].multiply(2)).add(k4[1]);
+
+        q.add(totalQ.multiply(dt / 6));
+        dq.add(totalDq.multiply(dt / 6));
+    }
+}
+
 export class ConstraintSolver {
     /**
      *
@@ -68,10 +213,11 @@ export class ConstraintSolver {
      * @param ctt The second time derivative of the constraint function evaluated at (q, t)
      * @param forces Outside net forces
      * @param velocity The velocity vector
+     * @param feedback Feedback Vector
      */
     public solve(
         imass: Matrix, J: Matrix, dJ: Matrix, ctt: Vector,
-        forces: Vector, velocity: Vector,
+        forces: Vector, velocity: Vector, feedback: Vector,
     ): Vector {
         // solving for the lagrange multipliers in
         // (-JWJ^T) x = JW Q + dJ dq + ctt
@@ -98,12 +244,17 @@ export class ConstraintSolver {
         const multipliers = lhs.solve(rhs);
 
         // now solve for acceleration
+
+        // C = J^T x
         const JT = J.clone();
         JT.transpose();
         multipliers.multiplyLeft(JT);  // = C
 
+        // a = W (C + Q + Feedback)
         let C = multipliers;
         C.add(forces);
+        // add feedback
+        C.add(feedback);
         C.multiplyLeft(imass);
 
         return C;
@@ -111,6 +262,7 @@ export class ConstraintSolver {
 }
 
 export type Vector = Matrix;
+
 export class Matrix {
     data: number[];
     rows: number;
@@ -158,14 +310,13 @@ export class Matrix {
     }
 
 
-
-
     public add(other: Matrix) {
         for (let i = 0; i < this.data.length; ++i) {
             this.data[i] += other.data[i];
         }
 
         this.checkNaN();
+        return this;
     }
 
     public subtract(other: Matrix) {
@@ -174,7 +325,7 @@ export class Matrix {
         }
 
         this.checkNaN();
-
+        return this;
     }
 
     public negate() {
@@ -191,7 +342,15 @@ export class Matrix {
             this.data[i] *= k;
         }
         this.checkNaN();
+        return this;
+    }
 
+    public divide(k: number) {
+        for (let i = 0; i < this.data.length; ++i) {
+            this.data[i] /= k;
+        }
+        this.checkNaN();
+        return this;
     }
 
     // perform other * this
@@ -222,6 +381,7 @@ export class Matrix {
 
         this.checkNaN();
 
+        return this;
     }
 
     // solve linear system: this * x = b for x
@@ -239,8 +399,6 @@ export class Matrix {
         const mat = new Matrix(operating, rows, cols);
         mat.rref();
 
-        mat.checkNaN();
-
         let result = [];
         for (let row = 0; row < rows; ++row) {
             result.push(mat.data[(row + 1) * cols - 1]);
@@ -249,7 +407,7 @@ export class Matrix {
         return Matrix.fromVector(result);
     }
 
-    public rref(epsilon = 0.001) {
+    public rref(epsilon = 2 * Number.EPSILON) {
         // compute the rref form of the matrix
         let operating = [...this.data];
         let pivot = 0;
@@ -366,6 +524,12 @@ export class Matrix {
 
     public at(row: number, col: number = 0) {
         return this.data[row * this.cols + col];
+    }
+
+    public copy(other: Matrix) {
+        this.data = [...other.data];
+        this.rows = other.rows;
+        this.cols = other.cols;
     }
 }
 

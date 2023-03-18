@@ -22,7 +22,8 @@
         {
             attachments: {
                 axis: true,
-                labels: true,
+                labels: false,
+                counter: true,
             },
             rate: {
                 update: 360,
@@ -36,31 +37,37 @@
 
     const loader = new Loader();
     loader.inject(canvas, cvs => {
-        const pendulum = new Systems.ConstraintPendulum({
-            mass: 0.1,
-            length: 4,
-            angle: -60 / 180 * Math.PI,
-            gravity: 9.81
-        });
+        // const pendulum = new Systems.ConstraintPendulum({
+        //     mass: 0.1,
+        //     length: 4,
+        //     angle: -60 / 180 * Math.PI,
+        //     gravity: 9.81
+        // });
+
+
+
+        // cvs.addElement(pendulum);
+
+        const dpend = new Systems.DoublePendulum();
 
         const grapher = new DynamicGraphs.EnergeticSystemGrapher(
-            pendulum,
-            ['kineticEnergy', 'potentialEnergy', 'totalEnergy'],
-            ['#ff0000', '#008cff', '#000'],
+            dpend,
+            ['totalError', 'totalDError', 'totalEnergy'],
+            ['#ff0000', '#0000ff', '#00ff00'],
             {
                 location: [0, 0],
                 size:  [13, 8],
                 bindings: {
                     xrange: [0, 4],
-                    yrange: [-10, 10],
-                    bordered: false,
-                    axis: false
+                    yrange: [-14, 100],
+                    bordered: true,
+                    axis: true
                 }
             }
         )
 
-        cvs.addElement(pendulum);
         cvs.addElement(grapher);
+        cvs.addElement(dpend);
     });
 </script>
 </body>

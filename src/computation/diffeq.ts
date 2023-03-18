@@ -96,7 +96,14 @@ export namespace PhysicsSolvers {
 
         // run the RK4 solver, notice that all ks are [pos, vel]'s
         const k1 = dzdt(t, p, v);
-        const k2 = dzdt(t + dt / 2, Space.VecAddV(p, Space.VecMulC(k1[0], dt / 2)), Space.VecAddV(v, Space.VecMulC(k1[1], dt / 2)));
+        const k2 = dzdt(t + dt / 2,
+            Space.VecAddV(
+                p, Space.VecMulC(k1[0], dt / 2)
+            ),
+            Space.VecAddV(
+                v, Space.VecMulC(k1[1], dt / 2)
+            )
+        );
         const k3 = dzdt(t + dt / 2, Space.VecAddV(p, Space.VecMulC(k2[0], dt / 2)), Space.VecAddV(v, Space.VecMulC(k2[1], dt / 2)));
         const k4 = dzdt(t + dt, Space.VecAddV(p, Space.VecMulC(k3[0], dt)), Space.VecAddV(v, Space.VecMulC(k3[1], dt)));
 
@@ -174,8 +181,7 @@ export namespace SpaceTimeSolvers {
             } else if (i === dx.size - 1) {
                 // use euler for last point
                 fq = Div(Sub(xs[i], xs[i - 1]), Complex.FromRect(dx.step));
-            } else if (i === dx.size - 2 || i === 1)
-            {
+            } else if (i === dx.size - 2 || i === 1) {
                 // if 1st,2nd point, use the 2 point method
                 fq = Div(Sub(xs[i + 1], newXs[i - 1]), Complex.FromRect(2 * dx.step));
             } else {
@@ -183,8 +189,8 @@ export namespace SpaceTimeSolvers {
                 // https://en.wikipedia.org/wiki/Five-point_stencil
                 fq = Div(
                     Add(
-                        Sub(Mul(FR(8), newXs[i+1]), newXs[i+2]),
-                        Sub(newXs[i-2], Mul(FR(8), newXs[i-1])),
+                        Sub(Mul(FR(8), newXs[i + 1]), newXs[i + 2]),
+                        Sub(newXs[i - 2], Mul(FR(8), newXs[i - 1])),
                     ),
                     FR(12 * dx.step)
                 )
@@ -228,7 +234,7 @@ export namespace SpaceTimeSolvers {
         let len = space.iter.length;
         while (i < len) {
             // skip the first B field
-            Es[i] += dt / dx * (Bs[i-1] - Bs[i]);
+            Es[i] += dt / dx * (Bs[i - 1] - Bs[i]);
             ++i;
         }
 
@@ -237,7 +243,7 @@ export namespace SpaceTimeSolvers {
         }
 
         // open boundary
-        Es[len-1] = lastEKx;
+        Es[len - 1] = lastEKx;
         Es[0] = lastEx;
 
         // update B fields
@@ -245,7 +251,7 @@ export namespace SpaceTimeSolvers {
         // for (const [x, i] of space.iter) {
         i = 0;
         while (i < len - 1) {
-            Bs[i] += dt / dx * (Es[i] - Es[i+1]);
+            Bs[i] += dt / dx * (Es[i] - Es[i + 1]);
             ++i;
         }
 

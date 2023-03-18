@@ -52,7 +52,6 @@ export interface ICanvas {
     readonly ctx: CanvasRenderingContext2D;
     readonly options: CanvasOptions;
     readonly cursor: CursorStyler;
-
     readonly totalTime: number;
 
     // backwards compat, deprecated
