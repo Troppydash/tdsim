@@ -15,6 +15,7 @@ export namespace Graphing {
         axis: boolean;
         color: string | string[];
         skip: number;
+        delta: number;
     }
 
     export const BASEGRAPHER_DEFAULT: GrapherAttr = {
@@ -23,7 +24,8 @@ export namespace Graphing {
         bordered: true,
         axis: true,
         color: '#000',
-        skip: 4
+        skip: 4,
+        delta: 1,
     };
 
 
@@ -105,7 +107,7 @@ export namespace Graphing {
         }
 
         // Render the data
-        renderData(data: Graphable, {xrange, yrange, skip, parent, ctx}, color: string) {
+        private renderData(data: Graphable, {xrange, yrange, skip, parent, ctx}, color: string) {
             const {location, size} = this;
 
             ctx.beginPath();
@@ -115,7 +117,7 @@ export namespace Graphing {
             const xscale = size[0] / (xrange[1] - xrange[0]);
             const yscale = size[1] / (yrange[1] - yrange[0]);
             let lastypos = 0; // this is used so that no vertical line appears for discont functions
-            const delta = 0.1;
+            const delta = this.parameters.delta;
             for (let i = 0; i < data.length; i++) {
                 if (skip !== 0 && data.length - i > skip && i % skip !== 0)
                     continue;
@@ -183,6 +185,7 @@ export namespace Graphing {
                     this.dataSortations[i] = true;
                 }
             }
+
 
             ctx.strokeStyle = '#0f0';
             ctx.lineWidth = 1;

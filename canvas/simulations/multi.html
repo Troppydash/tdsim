@@ -1,0 +1,55 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Multithreading</title>
+</head>
+<body>
+
+<script src="../vendor/multithread.js-master/multithread.js"></script>
+<script>
+    const MT = new Multithread(12);
+
+    function work(n, max) {
+        function fib(i) {
+            if (i < 2)
+                return i;
+            return fib(i - 1) + fib(i - 2);
+        }
+        console.log(max);
+        return fib(Math.min(max.max(), n));
+    }
+
+    function wrapPromise(process) {
+        return (worker) => {
+            return (...args) => {
+                return new Promise(resolve => {
+                    process(worker, resolve)(...args);
+                })
+            }
+        }
+    }
+
+    async function main() {
+        const process = wrapPromise(MT.process.bind(MT));
+
+        const max = new Test();
+        const fib = process(work);
+
+        const fibs = [];
+        for (let i = 0; i < 50; ++i) {
+            fibs.push(fib(i, max));
+        }
+
+
+        const results = await Promise.all(fibs)
+        console.log(results)
+    }
+
+
+    main();
+</script>
+</body>
+</html>

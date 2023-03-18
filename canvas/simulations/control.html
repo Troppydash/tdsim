@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Control Systems</title>
+
+    <style>
+        body {
+            margin: 0;
+        }
+
+        canvas {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+
+<div>
+    <canvas id="output"></canvas>
+</div>
+
+<script type="module">
+    // compute control systems
+    import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
+    import {Loader} from "../../build/tdsim/canvas/loader.js";
+    import {ControlSystem} from "../../build/tdsim/sims/objects/system.js";
+    import {Graphing} from "../../build/tdsim/sims/algos/graphing.js";
+
+    const canvas = new TDCanvas(
+        document.getElementById('output'),
+        {
+            attachments: {
+                axis: false,
+                labels: true,
+            },
+            rate: {
+                update: 60,
+            },
+            size: {
+                width: window.innerWidth,
+                height: window.innerHeight
+            }
+        }
+    );
+
+    const loader = new Loader();
+    loader.inject(canvas, cvs => {
+        const signal = t => {
+            const rand = 0;
+            // return Math.sin(t) + Math.cos(t) ** 2;
+            return 0.05 * Math.sin(10 *t) + (Math.floor(t) % 3) * 0.5 + Math.random() * 0.5;
+        }
+
+
+        const grapher = new Graphing.BaseGrapher({
+            location: cvs.anchor(),
+            size: cvs.drawableArea(),
+            bindings: {
+                xrange: [-0.5, 10],
+                yrange: [-0.5, 2],
+                bordered: true,
+                axis: false,
+                color: ['#ff0000', '#000']
+            }
+        });
+        // const controller = new ControlSystem.PIDController(0, [2, 0.0001, 500]);
+        const controller = new ControlSystem.PIDController(0, [1, 0.001, 100]);
+        const system = new ControlSystem.TestSystem(controller, grapher, {
+            signal,
+            duration: 10,
+            dt: 0.001
+        });
+
+        cvs.addElement(system);
+
+    });
+
+</script>
+
+</body>
+</html>

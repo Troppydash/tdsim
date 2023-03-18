@@ -231,7 +231,7 @@ export abstract class BindableBase extends TDElement {
         this.bindings = bindings;
     }
 
-    start(parent: TDCanvas, ctx: CanvasRenderingContext2D) {
+    start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
         if (Object.entries(this.DEFAULT_BINDINGS).length > 0) {
             // merge
             const obj = {};
