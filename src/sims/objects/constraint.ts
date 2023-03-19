@@ -28,16 +28,16 @@ export abstract class BaseSystem extends TDElement {
     forces: Vector;
     private lastTime: number;
 
+    // used to PID derivative term of constraint error
     private lastC: Vector;
     private lastDC: Vector;
 
-    alpha: number = 0;
-    beta: number = 0;
+    // 4-tuple feedback variables [alpha, beta, dAlpha, dBeta]
+    feedback: number[] | null = null;
 
-    dAlpha: number = 0;
-    dBeta: number = 0;
-
+    // dt timestep for feedback controls (normalizing derivative term)
     dt: number;
+
     // solving classes
     private solver = new ConstraintSolver();
     private integrator: Integrator = new RK4Integrator();
@@ -91,7 +91,7 @@ export abstract class BaseSystem extends TDElement {
         const J = this.J(q, dq, t);
         const dJ = this.dJ(q, dq, t);
         const ctt = this.ctt(q, t);
-        const feedback = this.computeFeedback(this.dt, t);
+        const feedback = this.feedback == null ? null : this.computeFeedback(this.dt, t);
         return this.solver.solve(this.imass, J, dJ, ctt, this.forces, dq, feedback);
     }
 
@@ -114,6 +114,7 @@ export abstract class BaseSystem extends TDElement {
     }
 
     protected computeFeedback(dt: number, t: number): Vector {
+        const [alpha, beta, dAlpha, dBeta] = this.feedback;
         const C = this.C(this.q, this.dq, t);
         const dC = this.dC(this.q, this.dq, t);
 
@@ -123,15 +124,15 @@ export abstract class BaseSystem extends TDElement {
         const JT = this.J(this.q, this.dq, t);
         JT.transpose();
 
-        const Alpha = C.clone().multiplyLeft(JT).multiply(this.alpha);
-        const Beta = dC.clone().multiplyLeft(JT).multiply(this.beta);
-        const dAlpha = diffC.clone().multiplyLeft(JT).multiply(this.dAlpha / dt);
-        const dBeta = diffDC.clone().multiplyLeft(JT).multiply(this.dBeta / dt);
+        const Alpha = C.clone().multiplyLeft(JT).multiply(alpha);
+        const Beta = dC.clone().multiplyLeft(JT).multiply(beta);
+        const DAlpha = diffC.clone().multiplyLeft(JT).multiply(dAlpha / dt);
+        const DBeta = diffDC.clone().multiplyLeft(JT).multiply(dBeta / dt);
 
         this.lastC = C.clone();
         this.lastDC = dC.clone();
 
-        return Alpha.add(Beta).add(dAlpha).add(dBeta);
+        return Alpha.add(Beta).add(DAlpha).add(DBeta);
     }
 
     protected position() {
@@ -217,7 +218,7 @@ export class ConstraintSolver {
      */
     public solve(
         imass: Matrix, J: Matrix, dJ: Matrix, ctt: Vector,
-        forces: Vector, velocity: Vector, feedback: Vector,
+        forces: Vector, velocity: Vector, feedback?: Vector,
     ): Vector {
         // solving for the lagrange multipliers in
         // (-JWJ^T) x = JW Q + dJ dq + ctt
@@ -254,7 +255,9 @@ export class ConstraintSolver {
         let C = multipliers;
         C.add(forces);
         // add feedback
-        C.add(feedback);
+        if (feedback != null) {
+            C.add(feedback);
+        }
         C.multiplyLeft(imass);
 
         return C;

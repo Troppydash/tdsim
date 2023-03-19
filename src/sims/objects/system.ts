@@ -165,8 +165,6 @@ export namespace Systems {
             return null;
         }
 
-        alpha = 0;
-        beta = 0
         private readonly settings: PendulumSettings;
 
         constructor(
@@ -232,10 +230,7 @@ export namespace Systems {
     export class DoublePendulum extends BaseSystem implements EnergeticSystems {
         imass: Matrix;
 
-        alpha = -0.05;
-        beta = -0.1;
-        dAlpha = -0.33;
-        dBeta = -0.05;
+        feedback = [-0.05, -0.1, -0.33, -0.05];
 
         J(q: Vector, dq: Vector, t: number): Matrix {
             const [x1, y1, x2, y2] = q.data;
