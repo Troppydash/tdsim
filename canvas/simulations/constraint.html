@@ -6,22 +6,29 @@
 </head>
 <body>
 
-<div>
-    <canvas id="root"></canvas>
+<div style="display: flex; justify-content: flex-start; align-items: flex-start">
+    <canvas id="root" contenteditable="true" autofocus></canvas>
+    <div style="margin-left: 2rem; font-size: 2rem">
+        Instructions:
+        <hr>
+        Press <code>q</code> and <code>e</code> to control the ball.
+        Press <code>a</code> and <code>d</code> to control the cart.
+    </div>
 </div>
+
 
 <script type="module">
 
     import {TDCanvas} from "../../build/tdsim/canvas/canvas.js";
     import {Loader} from "../../build/tdsim/canvas/loader.js";
-    import {Systems} from "../../build/tdsim/sims/objects/system.js";
+    import {ControlSystem, Systems} from "../../build/tdsim/sims/objects/system.js";
     import {DynamicGraphs} from "../../build/tdsim/sims/algos/graphing.js";
 
     const canvas = new TDCanvas(
         document.getElementById('root'),
         {
             attachments: {
-                axis: true,
+                axis: false,
                 labels: false,
                 counter: true,
             },
@@ -29,8 +36,9 @@
                 update: 360,
             },
             region: {
-                right: 0.9,
-                top: 0.9
+                right: 0.5,
+                top: 0.9,
+                scale: 25
             }
         }
     );
@@ -48,26 +56,49 @@
 
         // cvs.addElement(pendulum);
 
-        const dpend = new Systems.DoublePendulum();
+        // const dpend = new Systems.DoublePendulum();
+
+
+        // cvs.addElement(dpend);
+
+        const invert = new Systems.InvertedPendulum(
+            1,
+            [1, 10],
+            [0, 1, 10],
+            [0, 0, 0],
+            {
+                location: [5, 0.25]
+            }
+        );
+        const controller = new ControlSystem.PIDController(
+            0,
+            [500, 0.01, 20000],
+            // [0, 0, 0],
+        );
+        const invertController = new ControlSystem.SingleSystemController(
+            invert,
+            controller
+        );
+        cvs.addElement(invertController);
 
         const grapher = new DynamicGraphs.EnergeticSystemGrapher(
-            dpend,
-            ['totalError', 'totalDError', 'totalEnergy'],
-            ['#ff0000', '#0000ff', '#00ff00'],
+            invert,
+            ['totalError'],
+            ['#ff0000',],
             {
-                location: [0, 0],
-                size:  [13, 8],
+                location: [-20, 5],
+                size:  [50, 20],
                 bindings: {
                     xrange: [0, 4],
-                    yrange: [-14, 100],
-                    bordered: true,
-                    axis: true
+                    // yrange: [-0.1, 0.1],
+                    bordered: false,
+                    axis: true,
+                    delta: 200,
                 }
             }
         )
 
         cvs.addElement(grapher);
-        cvs.addElement(dpend);
     });
 </script>
 </body>

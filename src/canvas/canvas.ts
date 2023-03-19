@@ -44,6 +44,8 @@ export interface CanvasInputs {
 
     // position of the last click (ie mousedown), null if no clicks
     click: Observable<null | [number, number]>;
+
+    keyboard: Observable<null | string[]>;
 }
 
 export interface ICanvas {
@@ -143,6 +145,7 @@ export class TDCanvas implements ICanvas {
         cursor: new TDObservable(null),
         drag: new TDObservable(null),
         click: new TDObservable(null),
+        keyboard: new TDObservable([]),
     }
     private inputStartDrag: Vec2 | null = null;
     private inputsHandler: Record<string, any>;
@@ -509,6 +512,27 @@ export class TDCanvas implements ICanvas {
         };
 
         this.inputsHandler = {
+            keydown: event => {
+                if (!event.repeat) {
+                    this.inputs.keyboard.update(
+                        [...this.inputs.keyboard.value(), event.key]
+                    );
+                    // console.log("keydown", event.key);
+                }
+            },
+            keyup: event => {
+                const keys = this.inputs.keyboard.value();
+                // remove event.key
+                const index = keys.indexOf(event.key);
+                if (index == -1) {
+                    return;
+                }
+
+                keys.splice(index, 1);
+                this.inputs.keyboard.update(
+                    keys
+                );
+            },
             mousemove: event => {
                 const position = this.worldToLocal(computePosition(event));
                 this.inputs.cursor.update(position);

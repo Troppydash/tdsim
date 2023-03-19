@@ -242,6 +242,32 @@ export namespace Primitives {
             color
         );
     }
+
+
+    export function DrawRect(
+        parent: ICanvas,
+        ctx: CanvasRenderingContext2D,
+        center: Vec2,
+        size: Vec2,
+        lineWidth: number,
+        color: string
+    ) {
+        ctx.lineWidth = parent.localToWorldScalar(lineWidth);
+        ctx.strokeStyle = color;
+
+        // topleft
+        const topleft = [
+            center[0] -  size[0] / 2,
+            center[1] + size[1] / 2
+        ] as Vec2;
+
+        ctx.strokeRect(
+            ...parent.localToWorld(topleft),
+            parent.localToWorldScalar(size[0]),
+            parent.localToWorldScalar(size[1]),
+        );
+
+    }
 }
 
 export namespace Batched {

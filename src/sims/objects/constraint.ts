@@ -285,6 +285,22 @@ export class Matrix {
         }
     }
 
+    static fromDiagonal(elements: number[]) {
+        const rows = elements.length;
+        const cols = elements.length;
+        let data = [];
+        for (let row = 0; row < rows; ++row) {
+            for (let col = 0; col < cols; ++col) {
+                if (row == col) {
+                    data.push(elements[row]);
+                } else {
+                    data.push(0);
+                }
+            }
+        }
+
+        return new Matrix(data, rows, cols);
+    }
 
     static fromArray(elements: number[][]) {
         const rows = elements.length;

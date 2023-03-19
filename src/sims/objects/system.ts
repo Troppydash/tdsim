@@ -1,6 +1,5 @@
-import {Bindable, Binding} from "../../canvas/binding.js";
 import {TDElement} from "../../canvas/drawers/basics.js";
-import {ICanvas} from "../../canvas/canvas.js";
+import {ICanvas, IElement} from "../../canvas/canvas.js";
 import {DynamicGraphs, Graphing} from "../algos/graphing.js";
 import {BaseSystem, Matrix, Vector} from "./constraint.js";
 import {Plane, Vec2} from "../../computation/vector.js";
@@ -11,7 +10,7 @@ export namespace ControlSystem {
     import BaseGrapher = Graphing.BaseGrapher;
 
     export interface Plant<I, O> {
-        iterate(signal: I): O;
+        iterate(signal: I, dt?: number, t?: number): O;
     }
 
     export interface Controller<E, O> {
@@ -56,13 +55,11 @@ export namespace ControlSystem {
         }
     }
 
-
     interface TestSystemOptions {
         signal: (t: number) => number;
         duration: number;
         dt: number;
     }
-
 
     export class TestSystem extends TDElement {
         private controller: Controller<number, number>;
@@ -124,10 +121,44 @@ export namespace ControlSystem {
         }
 
     }
+
+
+    export interface Controllable<I, O> extends Plant<I, O>, IElement {
+    }
+
+    export class SingleSystemController extends TDElement {
+        private error: number = 0;
+
+        constructor(
+            readonly system: Controllable<number, number>,
+            readonly controller: Controller<number, number>
+        ) {
+            super();
+        }
+
+        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            this.system.start(parent, ctx);
+        }
+
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const signal = this.controller.control(this.error);
+            this.error = this.system.iterate(signal, dt, parent.totalTime);
+        }
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            this.system.render(parent, ctx, dt);
+        }
+
+        stop(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            this.system.stop(parent, ctx);
+        }
+
+    }
 }
 
 export namespace Systems {
     import EnergeticSystems = DynamicGraphs.EnergeticSystems;
+    import Controllable = ControlSystem.Controllable;
 
     interface PendulumSettings {
         mass: number;
@@ -326,4 +357,169 @@ export namespace Systems {
         }
     }
 
+
+    interface InvertedPendulumSettings {
+        location: Vec2;
+    }
+
+    export class InvertedPendulum extends BaseSystem implements Controllable<number, number> {
+        imass: Matrix;
+
+        C(q: Vector, dq: Vector, t: number): Vector {
+            const [x, x1, y1] = q.data;
+            const l = this.length;
+            return Matrix.fromVector([
+                (x1 - x) ** 2 + y1 ** 2 - l ** 2
+            ]);
+        }
+
+        dC(q: Vector, dq: Vector, t: number): Vector {
+            const [x, x1, y1] = q.data;
+            const [dx, dx1, dy1] = dq.data;
+            return Matrix.fromVector([
+                -2 * (x1 - x) * dx + 2 * (x1 - x) * dx1 + 2 * y1 * dy1
+            ]);
+        }
+
+        J(q: Vector, dq: Vector, t: number): Matrix {
+            const [x, x1, y1] = q.data;
+            return Matrix.fromArray([
+                [-2 * (x1 - x), 2 * (x1 - x), 2 * y1]
+            ]);
+        }
+
+        dJ(q: Vector, dq: Vector, t: number): Matrix {
+            const [dx, dx1, dy1] = dq.data;
+            return Matrix.fromArray([
+                [-2 * (dx1 - dx), 2 * (dx1 - dx), 2 * dy1]
+            ]);
+        }
+
+        ctt(q: Vector, t: number): Vector {
+            return Matrix.fromVector([
+                0
+            ]);
+        }
+
+        private gravity: number;
+        private mass: [number, number];
+        private length: number;
+        private origin: number;
+        readonly settings: InvertedPendulumSettings;
+
+        private compensate: number = 0;
+
+        private userForce: number = 0;
+        private userBallForce: number = 0;
+
+        constructor(
+            gravity: number,
+            mass: [number, number],
+            position: [number, number, number],  // x, x1, y1
+            velocity: [number, number, number],
+            settings: InvertedPendulumSettings
+        ) {
+            super(position, velocity);
+
+            this.gravity = gravity;
+            this.mass = mass;
+            const [x, x1, y1] = position;
+            this.length = Math.sqrt((x1 - x) ** 2 + y1 ** 2);
+            this.imass = Matrix.fromDiagonal([1 / mass[0], 1 / mass[1], 1 / mass[1]]);
+            this.origin = position[0];
+
+            this.settings = settings;
+        }
+
+        start(parent: ICanvas, ctx: CanvasRenderingContext2D) {
+            parent.inputs.keyboard.subscribe((newValue, oldValue) => {
+                if (newValue.includes('a')) {
+                    this.userForce = -20;
+                } else if (newValue.includes('d')) {
+                    this.userForce = 20;
+                } else {
+                    this.userForce = 0;
+                }
+
+                if (newValue.includes('q')) {
+                    this.userBallForce = -3;
+                } else if (newValue.includes('e')) {
+                    this.userBallForce = 3;
+                } else {
+                    this.userBallForce = 0;
+                }
+            });
+        }
+
+        iterate(signal: number, dt: number, t: number): number {
+            // compute user force
+            this.compensate = signal * this.mass[0];
+            this.addForce([this.compensate + this.userForce * this.mass[0], this.userBallForce * this.mass[1], -this.gravity * this.mass[1]]);
+            this.tick(t, dt);
+
+            // error
+            // compute angle
+            const [x, x1, y1] = this.q.data;
+            return Math.atan2(x1 - x, Math.max(0, y1)) + 0.05*(x-this.origin);
+        }
+
+        totalError(): number {
+            const [x, x1, y1] = this.q.data;
+            return Math.atan2(x1 - x, Math.max(0, y1));
+        }
+
+        update(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            this.addForce([0, 0, -9.81]);
+            this.tick(parent.totalTime, dt);
+        }
+
+        render(parent: ICanvas, ctx: CanvasRenderingContext2D, dt: number) {
+            const [x, x1, y1] = this.q.data;
+
+            const origin = Plane.VecAddV([x, 0], this.settings.location);
+            const ball = Plane.VecAddV([x1, y1], this.settings.location);
+
+            // draw cart
+            Primitives.DrawRect(parent, ctx, origin, [1, 0.5], 0.03, '#000');
+            Primitives.DrawHollowCircle(parent, ctx, Plane.VecAddV(origin, [-0.35, -0.25]), 0.1, 0.03, '#000');
+            Primitives.DrawHollowCircle(parent, ctx, Plane.VecAddV(origin, [+0.35, -0.25]), 0.1, 0.03, '#000');
+
+            // draw line
+            Primitives.DrawLine(parent, ctx, origin, ball, 1, '#000');
+
+            Primitives.DrawCircle(parent, ctx, ball, 0.25, '#000');
+
+            Primitives.DrawVectorMaths(
+                parent,
+                ctx,
+                origin,
+               [this.compensate, 0],
+                0.15,
+                0.2,
+                '#ff0000'
+            )
+
+            Primitives.DrawVectorMaths(
+                parent,
+                ctx,
+                origin,
+                [this.userForce, 0],
+                0.15,
+                0.2,
+                '#00ff00'
+            )
+
+            Primitives.DrawVectorMaths(
+                parent,
+                ctx,
+                ball,
+                [this.userBallForce, 0],
+                0.15,
+                0.2,
+                '#00ff00'
+            )
+
+        }
+
+    }
 }
